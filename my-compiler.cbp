@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="my-compiler" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/my-compiler" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/my-compiler" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-std=c++11" />
+			<Add option="-Wall" />
+			<Add option="-fexceptions" />
+		</Compiler>
+		<Unit filename="context.cpp" />
+		<Unit filename="context.h" />
+		<Unit filename="dump.cpp" />
+		<Unit filename="dump.h" />
+		<Unit filename="main.cpp" />
+		<Unit filename="parser/parser.cpp" />
+		<Unit filename="parser/parser.h" />
+		<Unit filename="ssa/ssa_const.h" />
+		<Unit filename="ssa/ssa_control_transfer.h" />
+		<Unit filename="ssa/ssa_node.h" />
+		<Unit filename="ssa/ssa_nodes.h" />
+		<Unit filename="ssa/ssa_phi.h" />
+		<Unit filename="ssa/ssa_visitor.h" />
+		<Unit filename="tokenizer/token.h" />
+		<Unit filename="tokenizer/token_names.h" />
+		<Unit filename="types/type.h" />
+		<Unit filename="types/type_builtin.cpp" />
+		<Unit filename="types/type_builtin.h" />
+		<Unit filename="types/types.h" />
+		<Unit filename="values/value.h" />
+		<Unit filename="values/values.h" />
+		<Extensions>
+			<envvars />
+			<code_completion />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
