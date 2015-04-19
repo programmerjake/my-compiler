@@ -28,13 +28,13 @@
 #include "../../construct_basic_block_graph.h"
 #include "../../dump.h"
 #include <iostream>
+#include <cassert>
 
 /** uses Sparse Constant Propagation
  */
 class ConstantPropagationAndDeadCodeElimination final
 {
 private:
-    DumpVisitor dumpVisitor;
     bool isValueUndefined(std::shared_ptr<ValueNode> node)
     {
         if(dynamic_cast<const ValueUnknown *>(node.get()) != nullptr)
@@ -45,26 +45,9 @@ private:
     {
         return node == nullptr;
     }
-    void dumpValue(std::shared_ptr<ValueNode> node)
-    {
-        if(isValueVarying(node))
-            std::cout << "<varying>";
-        else if(isValueUndefined(node))
-            std::cout << "<undefined>";
-        else
-        {
-            node->visit(dumpVisitor);
-        }
-    }
 public:
-    ConstantPropagationAndDeadCodeElimination()
-        : dumpVisitor(std::cout)
-    {
-    }
     void visitSSAFunction(std::shared_ptr<SSAFunction> function)
     {
-        dumpVisitor.visitSSAFunction(function);
-        std::cout << std::endl;
         std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> values;
         std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSABasicBlock>> blocks;
         std::unordered_map<std::shared_ptr<SSAControlTransfer>, std::unordered_set<std::shared_ptr<SSABasicBlock>>> targetSets;
@@ -149,15 +132,12 @@ public:
                 break;
         }
         usedBlocksWorkList.clear();
-        std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> nodeReplacementMap;
+        std::unordered_map<std::shared_ptr<SSANode>, SSANode::ReplacementNode> nodeReplacementMap;
         for(std::shared_ptr<SSABasicBlock> block : function->blocks)
         {
             for(std::shared_ptr<SSANode> node : block->instructions)
             {
                 std::shared_ptr<ValueNode> value = values[node];
-                std::cout << dumpVisitor.getSSANodeDisplayValue(node) << ": ";
-                dumpValue(value);
-                std::cout << std::endl;
                 if(node->hasSideEffects())
                     continue;
                 std::shared_ptr<SSAControlTransfer> controlTransferNode = std::dynamic_pointer_cast<SSAControlTransfer>(node);
@@ -170,7 +150,11 @@ public:
                     const std::unordered_set<std::shared_ptr<SSABasicBlock>> &targetSet = targetSets[controlTransferNode];
                     if(targetSet.size() != 1)
                         continue;
-                    nodeReplacementMap[node] = std::make_shared<SSAUnconditionalJump>(function->context, *targetSet.begin());
+                    std::shared_ptr<SSANode> replacementNode = std::make_shared<SSAUnconditionalJump>(function->context, *targetSet.begin());
+                    assert(replacementNode != nullptr);
+                    nodeReplacementMap.emplace(node, SSANode::ReplacementNode(replacementNode, false));
+                    values[replacementNode] = value;
+                    blocks[replacementNode] = block;
                 }
                 if(dynamic_cast<const SSAConstant *>(node.get()) != nullptr)
                     continue;
@@ -178,7 +162,11 @@ public:
                     continue;
                 if(isValueUndefined(value) || isValueVarying(value))
                     continue;
-                nodeReplacementMap[node] = std::make_shared<SSAConstant>(value);
+                std::shared_ptr<SSANode> replacementNode = std::make_shared<SSAConstant>(value);
+                assert(replacementNode != nullptr);
+                nodeReplacementMap.emplace(node, SSANode::ReplacementNode(replacementNode, false));
+                values[replacementNode] = value;
+                blocks[replacementNode] = block;
             }
         }
         function->replaceNodes(nodeReplacementMap);

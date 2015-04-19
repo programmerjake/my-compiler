@@ -11,6 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
+				<Option parameters="-" />
 				<Compiler>
 					<Add option="-g" />
 				</Compiler>
@@ -40,6 +41,8 @@
 		<Unit filename="dump.h" />
 		<Unit filename="main.cpp" />
 		<Unit filename="optimization/const_dead_code/const_dead_code.h" />
+		<Unit filename="optimization/control_flow_simplification/control_flow_simplification.h" />
+		<Unit filename="optimization/phi_removal/phi_removal.h" />
 		<Unit filename="parser/parser.cpp" />
 		<Unit filename="parser/parser.h" />
 		<Unit filename="ssa/ssa_const.h" />

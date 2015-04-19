@@ -30,6 +30,6 @@ public:
     using runtime_error::runtime_error;
 };
 
-std::shared_ptr<SSAFunction> parse(CompilerContext *context, std::istream &is);
+std::shared_ptr<SSAFunction> parse(CompilerContext *context, std::istream &is, bool dumpCode);
 
 #endif // PARSER_H_INCLUDED

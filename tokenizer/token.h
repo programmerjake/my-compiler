@@ -72,6 +72,7 @@ class Tokenizer final
 {
 private:
     std::istream &is;
+    bool dumpCode;
     int putBackCharacter = EOF;
     int peek()
     {
@@ -87,7 +88,8 @@ private:
             putBackCharacter = EOF;
             return retval;
         }
-        std::cout << (char)is.peek() << std::flush;
+        if(dumpCode)
+            std::cout << (char)is.peek() << std::flush;
         return is.get();
     }
     void putBack(int ch)
@@ -115,8 +117,8 @@ private:
     std::string putBackTokenValue;
     bool hasPutBackToken = false;
 public:
-    explicit Tokenizer(std::istream &is)
-        : is(is)
+    explicit Tokenizer(std::istream &is, bool dumpCode)
+        : is(is), dumpCode(dumpCode)
     {
         readNext();
     }

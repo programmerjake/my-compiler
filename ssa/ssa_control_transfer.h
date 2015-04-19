@@ -16,10 +16,10 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
+#include "ssa_node.h"
 #ifndef SSA_CONTROL_TRANSFER_H_INCLUDED
 #define SSA_CONTROL_TRANSFER_H_INCLUDED
 
-#include "ssa_node.h"
 #include "../types/type_builtin.h"
 #include "ssa_visitor.h"
 #include "../values/values.h"
@@ -40,6 +40,14 @@ public:
     {
         return destBlocks;
     }
+    virtual void replaceBlock(std::shared_ptr<SSABasicBlock> searchFor, std::shared_ptr<SSABasicBlock> replaceWith) override
+    {
+        for(std::weak_ptr<SSABasicBlock> &block : destBlocks)
+        {
+            if(block.lock() == searchFor)
+                block = replaceWith;
+        }
+    }
 };
 
 class SSAUnconditionalJump final : public SSAControlTransfer
@@ -58,7 +66,7 @@ public:
     {
         return std::list<std::shared_ptr<SSANode>>{};
     }
-    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements) override
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
     {
     }
 };
@@ -98,7 +106,7 @@ public:
     {
         return std::list<std::shared_ptr<SSANode>>{condition.lock()};
     }
-    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements) override
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
     {
         condition = replaceNode(replacements, condition.lock());
     }

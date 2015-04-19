@@ -58,15 +58,28 @@ public:
     {
         return false;
     }
-    static std::shared_ptr<SSANode> replaceNode(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements, std::shared_ptr<SSANode> node)
+    struct ReplacementNode final
+    {
+        std::shared_ptr<SSANode> newNode;
+        bool isPreexistingNode;
+        ReplacementNode(std::shared_ptr<SSANode> newNode, bool isPreexistingNode)
+            : newNode(newNode), isPreexistingNode(isPreexistingNode)
+        {
+        }
+    };
+    static std::shared_ptr<SSANode> replaceNode(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements, std::shared_ptr<SSANode> node)
     {
         auto iter = replacements.find(node);
         if(iter == replacements.end())
             return node;
-        return std::get<1>(*iter);
+        return std::get<1>(*iter).newNode;
     }
-    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements) = 0;
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) = 0;
     virtual void removeBlocks(const std::unordered_set<std::shared_ptr<SSABasicBlock>> &removedBlocks)
+    {
+
+    }
+    virtual void replaceBlock(std::shared_ptr<SSABasicBlock> searchFor, std::shared_ptr<SSABasicBlock> replaceWith)
     {
 
     }
@@ -86,20 +99,99 @@ public:
     std::list<std::weak_ptr<SSABasicBlock>> destBlocks;
     std::shared_ptr<SSAControlTransfer> controlTransferInstruction;
     std::list<std::shared_ptr<SSANode>> instructions;
-    void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements)
+    void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, SSANode::ReplacementNode> &replacements)
     {
         auto iter = replacements.find(std::static_pointer_cast<SSANode>(controlTransferInstruction));
         if(iter != replacements.end())
-            controlTransferInstruction = std::dynamic_pointer_cast<SSAControlTransfer>(std::get<1>(*iter));
-        for(std::shared_ptr<SSANode> &node : instructions)
+            controlTransferInstruction = std::dynamic_pointer_cast<SSAControlTransfer>(std::get<1>(*iter).newNode);
+        for(auto i = instructions.begin(); i != instructions.end();)
         {
+            std::shared_ptr<SSANode> &node = *i;
             auto iter = replacements.find(node);
-            if(iter != replacements.end())
-                node = std::get<1>(*iter);
+            if(iter == replacements.end())
+            {
+                node->replaceNodes(replacements);
+                ++i;
+                continue;
+            }
+            SSANode::ReplacementNode replacementNode = std::get<1>(*iter);
+            if(replacementNode.isPreexistingNode && replacementNode.newNode != node)
+            {
+                i = instructions.erase(i);
+                continue;
+            }
+            node = replacementNode.newNode;
             node->replaceNodes(replacements);
         }
     }
+    void replaceBlock(std::shared_ptr<SSABasicBlock> searchFor, std::shared_ptr<SSABasicBlock> replaceWith)
+    {
+        if(immediateDominator.lock() == searchFor)
+            immediateDominator = replaceWith;
+        auto searchForIterator = sourceBlocks.end();
+        auto replaceWithIterator = sourceBlocks.end();
+        for(auto i = sourceBlocks.begin(); i != sourceBlocks.end(); ++i)
+        {
+            if(i->lock() == searchFor)
+                searchForIterator = i;
+            if(i->lock() == replaceWith)
+                replaceWithIterator = i;
+        }
+        if(searchForIterator != sourceBlocks.end())
+        {
+            if(replaceWithIterator != sourceBlocks.end())
+            {
+                sourceBlocks.erase(searchForIterator);
+            }
+            else
+                *searchForIterator = replaceWith;
+        }
+        searchForIterator = destBlocks.end();
+        replaceWithIterator = destBlocks.end();
+        for(auto i = destBlocks.begin(); i != destBlocks.end(); ++i)
+        {
+            if(i->lock() == searchFor)
+                searchForIterator = i;
+            if(i->lock() == replaceWith)
+                replaceWithIterator = i;
+        }
+        if(searchForIterator != destBlocks.end())
+        {
+            if(replaceWithIterator != destBlocks.end())
+            {
+                destBlocks.erase(searchForIterator);
+            }
+            else
+                *searchForIterator = replaceWith;
+        }
+        searchForIterator = dominatedBlocks.end();
+        replaceWithIterator = dominatedBlocks.end();
+        for(auto i = dominatedBlocks.begin(); i != dominatedBlocks.end(); ++i)
+        {
+            if(i->lock() == searchFor)
+                searchForIterator = i;
+            if(i->lock() == replaceWith)
+                replaceWithIterator = i;
+        }
+        if(searchForIterator != dominatedBlocks.end())
+        {
+            if(replaceWithIterator != dominatedBlocks.end())
+            {
+                dominatedBlocks.erase(searchForIterator);
+            }
+            else
+                *searchForIterator = replaceWith;
+        }
+        for(std::shared_ptr<SSANode> node : instructions)
+        {
+            node->replaceBlock(searchFor, replaceWith);
+        }
+    }
 };
+
+#include "ssa_visitor.h"
+#include "ssa_phi.h"
+#include "ssa_control_transfer.h"
 
 class SSAFunction : public std::enable_shared_from_this<SSAFunction>
 {
@@ -114,11 +206,11 @@ public:
     std::shared_ptr<SSABasicBlock> endBlock;
     std::list<std::shared_ptr<SSANode>> parameters;
     std::shared_ptr<SSANode> returnValue;
-    void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements)
+    void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, SSANode::ReplacementNode> &replacements)
     {
         auto iter = replacements.find(returnValue);
         if(iter != replacements.end())
-            returnValue = std::get<1>(*iter);
+            returnValue = std::get<1>(*iter).newNode;
         for(std::shared_ptr<SSABasicBlock> block : blocks)
         {
             block->replaceNodes(replacements);
@@ -127,12 +219,63 @@ public:
         {
             auto iter = replacements.find(node);
             if(iter != replacements.end())
-                node = std::get<1>(*iter);
+                node = std::get<1>(*iter).newNode;
         }
     }
+    void replaceBlock(std::shared_ptr<SSABasicBlock> searchFor, std::shared_ptr<SSABasicBlock> replaceWith)
+    {
+        if(startBlock == searchFor)
+            startBlock = replaceWith;
+        if(endBlock == searchFor)
+            endBlock = replaceWith;
+        auto searchForIterator = blocks.end();
+        auto replaceWithIterator = blocks.end();
+        for(auto i = blocks.begin(); i != blocks.end(); ++i)
+        {
+            if(*i == searchFor)
+                searchForIterator = i;
+            if(*i == replaceWith)
+                replaceWithIterator = i;
+        }
+        if(searchForIterator != blocks.end())
+        {
+            if(replaceWithIterator != blocks.end())
+            {
+                blocks.erase(searchForIterator);
+            }
+            else
+                *searchForIterator = replaceWith;
+        }
+        for(std::shared_ptr<SSABasicBlock> block : blocks)
+        {
+            block->replaceBlock(searchFor, replaceWith);
+        }
+    }
+    void mergeBlocks(std::shared_ptr<SSABasicBlock> firstBlock, std::shared_ptr<SSABasicBlock> secondBlock)
+    {
+        assert(firstBlock->destBlocks.size() == 1);
+        assert(secondBlock->sourceBlocks.size() == 1);
+        assert(firstBlock->controlTransferInstruction != nullptr);
+        assert(firstBlock->instructions.back() == firstBlock->controlTransferInstruction);
+        while(!secondBlock->instructions.empty())
+        {
+            std::shared_ptr<SSAPhi> phi = std::dynamic_pointer_cast<SSAPhi>(secondBlock->instructions.front());
+            if(phi == nullptr)
+                break;
+            assert(phi->inputs.size() == 1);
+            assert(phi->inputs.front().block.lock() == firstBlock);
+            std::shared_ptr<SSANode> replacementNode = phi->inputs.front().node.lock();
+            assert(replacementNode != nullptr);
+            std::unordered_map<std::shared_ptr<SSANode>, SSANode::ReplacementNode> replacements;
+            replacements.emplace(phi, SSANode::ReplacementNode(replacementNode, true));
+            replaceNodes(replacements); // erases phi
+        }
+        firstBlock->instructions.pop_back();
+        firstBlock->instructions.splice(firstBlock->instructions.end(), secondBlock->instructions);
+        firstBlock->controlTransferInstruction = secondBlock->controlTransferInstruction;
+        replaceBlock(secondBlock, firstBlock);
+        firstBlock->destBlocks = secondBlock->destBlocks;
+    }
 };
-
-#include "ssa_visitor.h"
-#include "ssa_control_transfer.h"
 
 #endif // SSA_NODE_H_INCLUDED

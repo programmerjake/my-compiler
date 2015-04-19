@@ -23,7 +23,10 @@
 #include "values/values.h"
 #include "parser/parser.h"
 #include <sstream>
+#include <fstream>
 #include "optimization/const_dead_code/const_dead_code.h"
+#include "optimization/phi_removal/phi_removal.h"
+#include "optimization/control_flow_simplification/control_flow_simplification.h"
 
 std::shared_ptr<SSAFunction> makeFunction(CompilerContext *context)
 {
@@ -52,37 +55,63 @@ std::shared_ptr<SSAFunction> makeFunction(CompilerContext *context)
 std::string getSourceCode()
 {
     return
-R"(
+R"(boolean e = false;
+for(boolean a = true, b = true; a; a = b, b = false)
 {
-    boolean e = false;
-    for(boolean a = true, b = true; a; a = b, b = false)
+    boolean c = true, d = true;
+    while(c)
     {
-        boolean c = true, d = true;
-        while(c)
+        c = d;
+        d = false;
+        do
         {
-            c = d;
-            d = false;
             if(e)
                 d = true;
         }
+        while(false);
     }
 }
 )";
 }
 
-int main()
+int usage(bool isError)
+{
+    std::ostream *pos = &std::cout;
+    if(isError)
+        pos = &std::cerr;
+    *pos << "Usage : my-compiler [-|<input_file>]" << std::endl;
+    if(isError)
+        return 1;
+    return 0;
+}
+
+int main(int argc, char **argv)
 {
     CompilerContext context;
-    std::shared_ptr<SSAFunction> fn = makeFunction(&context);
-    {
-        DumpVisitor dumper(std::cout);
-        dumper.visitSSAFunction(fn);
-    }
-    std::cout << std::endl << std::endl;
+    std::shared_ptr<SSAFunction> fn;
     try
     {
         std::istringstream is(getSourceCode());
-        fn = parse(&context, is);
+        std::istream *pis = &is;
+        if(argc > 1)
+        {
+            if(argc > 2)
+                return usage(true);
+            std::string arg = argv[1];
+            if(arg == "--help" || arg == "-h")
+            {
+                return usage(false);
+            }
+            if(arg == "-")
+                pis = &std::cin;
+            else
+            {
+                pis = new std::ifstream(arg.c_str());
+                if(!*pis)
+                    return usage(true);
+            }
+        }
+        fn = parse(&context, *pis, pis != &std::cin);
     }
     catch(ParseError &e)
     {
@@ -90,12 +119,9 @@ int main()
         return 1;
     }
     std::cout << std::endl << std::endl;
-    {
-        DumpVisitor dumper(std::cout);
-        dumper.visitSSAFunction(fn);
-    }
-    std::cout << std::endl << std::endl;
+    PhiRemoval().visitSSAFunction(fn);
     ConstantPropagationAndDeadCodeElimination().visitSSAFunction(fn);
+    ControlFlowSimplification().visitSSAFunction(fn);
     {
         DumpVisitor dumper(std::cout);
         dumper.visitSSAFunction(fn);

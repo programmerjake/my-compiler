@@ -16,10 +16,10 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
+#include "ssa_node.h"
 #ifndef SSA_PHI_H_INCLUDED
 #define SSA_PHI_H_INCLUDED
 
-#include "ssa_node.h"
 #include <cassert>
 
 class SSAPhi final : public SSANode
@@ -75,6 +75,7 @@ public:
         for(PhiInput i : inputs)
         {
             std::shared_ptr<SSANode> node = i.node.lock();
+            assert(node != nullptr);
             auto iter = values.find(node);
             std::shared_ptr<ValueNode> value = nullptr;
             if(iter != values.end())
@@ -119,15 +120,18 @@ public:
         std::list<std::shared_ptr<SSANode>> retval;
         for(PhiInput i : inputs)
         {
+            assert(i.node.lock() != nullptr);
             retval.push_back(i.node.lock());
         }
         return std::move(retval);
     }
-    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements) override
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
     {
-        for(PhiInput i : inputs)
+        for(PhiInput &i : inputs)
         {
+            assert(i.node.lock() != nullptr);
             i.node = replaceNode(replacements, i.node.lock());
+            assert(i.node.lock() != nullptr);
         }
     }
     virtual void removeBlocks(const std::unordered_set<std::shared_ptr<SSABasicBlock>> &removedBlocks) override
@@ -138,6 +142,14 @@ public:
                 i = inputs.erase(i);
             else
                 ++i;
+        }
+    }
+    virtual void replaceBlock(std::shared_ptr<SSABasicBlock> searchFor, std::shared_ptr<SSABasicBlock> replaceWith) override
+    {
+        for(PhiInput &i : inputs)
+        {
+            if(i.block.lock() == searchFor)
+                i.block = replaceWith;
         }
     }
 };

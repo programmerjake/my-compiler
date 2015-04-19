@@ -42,7 +42,7 @@ public:
     {
         return std::list<std::shared_ptr<SSANode>>{};
     }
-    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements) override
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
     {
     }
 };

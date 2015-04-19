@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <deque>
 #include "../construct_basic_block_graph.h"
+#include <cassert>
 
 namespace
 {
@@ -92,7 +93,9 @@ private:
         }
         void operator ()()
         {
-            phiInputIterator->node = symbol->nodes[phiInputIterator->block.lock()];
+            std::shared_ptr<SSANode> node = symbol->nodes[phiInputIterator->block.lock()];
+            phiInputIterator->node = node;
+            assert(node != nullptr);
         }
     };
     std::list<PhiPatch> addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>> sourceBlocks)
@@ -544,12 +547,9 @@ private:
         }
     }
 
-    void block()
+    void blockInterior()
     {
         pushSymbolTable();
-        if(tokenizer.tokenType != TokenType::LBrace)
-            throw ParseError("expected {");
-        tokenizer.readNext();
         while(tokenizer.tokenType != TokenType::EndOfFile && tokenizer.tokenType != TokenType::RBrace)
         {
             switch(tokenizer.tokenType)
@@ -576,15 +576,23 @@ private:
                 throw ParseError("unexpected token");
             }
         }
-        if(tokenizer.tokenType != TokenType::RBrace)
-            throw ParseError("expected }");
-        tokenizer.readNext();
         popSymbolTable();
     }
 
+    void block()
+    {
+        if(tokenizer.tokenType != TokenType::LBrace)
+            throw ParseError("expected {");
+        tokenizer.readNext();
+        blockInterior();
+        if(tokenizer.tokenType != TokenType::RBrace)
+            throw ParseError("expected }");
+        tokenizer.readNext();
+    }
+
 public:
-    explicit Parser(CompilerContext *context, std::istream &is)
-        : tokenizer(is), context(context)
+    explicit Parser(CompilerContext *context, std::istream &is, bool dumpCode)
+        : tokenizer(is, dumpCode), context(context)
     {
     }
     std::shared_ptr<SSAFunction> operator ()()
@@ -597,7 +605,7 @@ public:
         function->endBlock = std::make_shared<SSABasicBlock>(context);
         function->blocks.push_back(function->endBlock);
         currentBasicBlock = function->startBlock;
-        block();
+        blockInterior();
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, function->endBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         ConstructBasicBlockGraphVisitor().visitSSAFunction(function);
@@ -606,8 +614,8 @@ public:
 };
 }
 
-std::shared_ptr<SSAFunction> parse(CompilerContext *context, std::istream &is)
+std::shared_ptr<SSAFunction> parse(CompilerContext *context, std::istream &is, bool dumpCode)
 {
-    Parser parser(context, is);
+    Parser parser(context, is, dumpCode);
     return parser();
 }
