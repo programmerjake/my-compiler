@@ -33,6 +33,7 @@ private:
     std::ostream &os;
     std::unordered_map<std::shared_ptr<SSANode>, std::size_t> ssaNodeMap;
     std::size_t nextSSANode = 1;
+public:
     std::size_t getSSANodeDisplayValue(std::shared_ptr<SSANode> node)
     {
         if(node == nullptr)
@@ -42,8 +43,10 @@ private:
             return std::get<1>(*iter);
         return ssaNodeMap[node] = nextSSANode++;
     }
+private:
     std::unordered_map<std::shared_ptr<SSABasicBlock>, std::size_t> ssaBasicBlockMap;
     std::size_t nextSSABasicBlock = 1;
+public:
     std::size_t getSSABasicBlockDisplayValue(std::shared_ptr<SSABasicBlock> node)
     {
         if(node == nullptr)
@@ -53,8 +56,10 @@ private:
             return std::get<1>(*iter);
         return ssaBasicBlockMap[node] = nextSSABasicBlock++;
     }
+private:
     std::unordered_map<std::shared_ptr<SSAFunction>, std::size_t> ssaFunctionMap;
     std::size_t nextSSAFunction = 1;
+public:
     std::size_t getSSAFunctionDisplayValue(std::shared_ptr<SSAFunction> node)
     {
         if(node == nullptr)
@@ -64,6 +69,7 @@ private:
             return std::get<1>(*iter);
         return ssaFunctionMap[node] = nextSSAFunction++;
     }
+private:
     void dumpInstructionName(const char *name, std::shared_ptr<SSANode> node)
     {
         os << "[" << getSSANodeDisplayValue(node) << "]" << name;
@@ -82,6 +88,7 @@ public:
     virtual void visitTypeVoid(std::shared_ptr<TypeVoid> node) override;
     virtual void visitTypeBoolean(std::shared_ptr<TypeBoolean> node) override;
     virtual void visitValueBoolean(std::shared_ptr<ValueBoolean> node) override;
+    virtual void visitValueUnknown(std::shared_ptr<ValueUnknown> node) override;
     void visitSSANode(std::shared_ptr<SSANode> node)
     {
         node->visit(*this);

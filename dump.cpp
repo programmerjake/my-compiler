@@ -82,21 +82,42 @@ void DumpVisitor::visitValueBoolean(std::shared_ptr<ValueBoolean> node)
         os << "false";
     os << ")";
 }
+void DumpVisitor::visitValueUnknown(std::shared_ptr<ValueUnknown> node)
+{
+    os << "ValueUnknown()";
+}
 
 void DumpVisitor::visitSSABasicBlock(std::shared_ptr<SSABasicBlock> node)
 {
-    os << "  [" << getSSABasicBlockDisplayValue(node) << "]SSABasicBlock(";
-    const char *seperator = "\n    ";
+    os << "  [" << getSSABasicBlockDisplayValue(node) << "]SSABasicBlock(\n    immediateDominator=";
+    os << getSSABasicBlockDisplayValue(node->immediateDominator.lock()) << ",\n    dominatedBlocks=[";
+    const char *seperator = "";
+    for(std::weak_ptr<SSABasicBlock> dominatedBlockW : node->dominatedBlocks)
+    {
+        std::shared_ptr<SSABasicBlock> dominatedBlock = dominatedBlockW.lock();
+        os << seperator;
+        seperator = ",";
+        os << getSSABasicBlockDisplayValue(dominatedBlock);
+    }
+    os << "]";
     for(std::shared_ptr<SSANode> i : node->instructions)
     {
-        os << seperator;
-        seperator = ",\n    ";
+        os << ",\n    ";
         visitSSANode(i);
     }
     os << "\n  )";
 }
+
 void DumpVisitor::visitSSAFunction(std::shared_ptr<SSAFunction> node)
 {
+    for(std::shared_ptr<SSABasicBlock> i : node->blocks)
+    {
+        getSSABasicBlockDisplayValue(i);
+        for(std::shared_ptr<SSANode> j : i->instructions)
+        {
+            getSSANodeDisplayValue(j);
+        }
+    }
     os << "[" << getSSAFunctionDisplayValue(node) << "]SSAFunction(";
     const char *seperator = "\n";
     for(std::shared_ptr<SSABasicBlock> i : node->blocks)

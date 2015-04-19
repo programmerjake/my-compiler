@@ -25,11 +25,13 @@
 
 class ValueNode;
 class ValueBoolean;
+class ValueUnknown;
 class ValueNodeVisitor
 {
 public:
     virtual ~ValueNodeVisitor() = default;
     virtual void visitValueBoolean(std::shared_ptr<ValueBoolean> node) = 0;
+    virtual void visitValueUnknown(std::shared_ptr<ValueUnknown> node) = 0;
 };
 
 class ValueNode : public std::enable_shared_from_this<ValueNode>
@@ -43,6 +45,11 @@ public:
     {
     }
     virtual void visit(ValueNodeVisitor &visitor) = 0;
+    virtual bool operator ==(const ValueNode &rt) const = 0;
+    bool operator !=(const ValueNode &rt) const
+    {
+        return !operator ==(rt);
+    }
 };
 
 class ValueBoolean final : public ValueNode
@@ -56,6 +63,33 @@ public:
     virtual void visit(ValueNodeVisitor &visitor) override
     {
         visitor.visitValueBoolean(std::static_pointer_cast<ValueBoolean>(shared_from_this()));
+    }
+    virtual bool operator ==(const ValueNode &rt) const override
+    {
+        const ValueBoolean *prt = dynamic_cast<const ValueBoolean *>(&rt);
+        if(prt == nullptr)
+            return false;
+        return prt->value == value;
+    }
+};
+
+class ValueUnknown final : public ValueNode
+{
+public:
+    ValueUnknown(CompilerContext *context)
+        : ValueNode(context, TypeVoid::make(context))
+    {
+    }
+    virtual void visit(ValueNodeVisitor &visitor) override
+    {
+        visitor.visitValueUnknown(std::static_pointer_cast<ValueUnknown>(shared_from_this()));
+    }
+    virtual bool operator ==(const ValueNode &rt) const override
+    {
+        const ValueUnknown *prt = dynamic_cast<const ValueUnknown *>(&rt);
+        if(prt == nullptr)
+            return false;
+        return true;
     }
 };
 

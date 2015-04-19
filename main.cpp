@@ -23,14 +23,15 @@
 #include "values/values.h"
 #include "parser/parser.h"
 #include <sstream>
+#include "optimization/const_dead_code/const_dead_code.h"
 
 std::shared_ptr<SSAFunction> makeFunction(CompilerContext *context)
 {
-    auto retval = std::make_shared<SSAFunction>();
-    retval->startBlock = std::make_shared<SSABasicBlock>();
+    auto retval = std::make_shared<SSAFunction>(context);
+    retval->startBlock = std::make_shared<SSABasicBlock>(context);
     retval->blocks.push_back(retval->startBlock);
-    retval->endBlock = std::make_shared<SSABasicBlock>();
-    auto loopBlock = std::make_shared<SSABasicBlock>();
+    retval->endBlock = std::make_shared<SSABasicBlock>(context);
+    auto loopBlock = std::make_shared<SSABasicBlock>(context);
     retval->blocks.push_back(loopBlock);
     retval->blocks.push_back(retval->endBlock);
     auto startBlockA = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, false));
@@ -53,6 +54,7 @@ std::string getSourceCode()
     return
 R"(
 {
+    boolean e = false;
     for(boolean a = true, b = true; a; a = b, b = false)
     {
         boolean c = true, d = true;
@@ -60,6 +62,8 @@ R"(
         {
             c = d;
             d = false;
+            if(e)
+                d = true;
         }
     }
 }
@@ -86,6 +90,12 @@ int main()
         return 1;
     }
     std::cout << std::endl << std::endl;
+    {
+        DumpVisitor dumper(std::cout);
+        dumper.visitSSAFunction(fn);
+    }
+    std::cout << std::endl << std::endl;
+    ConstantPropagationAndDeadCodeElimination().visitSSAFunction(fn);
     {
         DumpVisitor dumper(std::cout);
         dumper.visitSSAFunction(fn);

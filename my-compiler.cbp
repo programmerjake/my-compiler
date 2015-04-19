@@ -33,11 +33,13 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Unit filename="construct_basic_block_graph.h" />
 		<Unit filename="context.cpp" />
 		<Unit filename="context.h" />
 		<Unit filename="dump.cpp" />
 		<Unit filename="dump.h" />
 		<Unit filename="main.cpp" />
+		<Unit filename="optimization/const_dead_code/const_dead_code.h" />
 		<Unit filename="parser/parser.cpp" />
 		<Unit filename="parser/parser.h" />
 		<Unit filename="ssa/ssa_const.h" />

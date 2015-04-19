@@ -68,6 +68,78 @@ public:
     {
         visitor.visitSSAPhi(std::static_pointer_cast<SSAPhi>(shared_from_this()));
     }
+    virtual std::shared_ptr<ValueNode> evaluateForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const override
+    {
+        std::shared_ptr<ValueNode> retval = nullptr;
+        bool isFirst = true;
+        for(PhiInput i : inputs)
+        {
+            std::shared_ptr<SSANode> node = i.node.lock();
+            auto iter = values.find(node);
+            std::shared_ptr<ValueNode> value = nullptr;
+            if(iter != values.end())
+                value = std::get<1>(*iter);
+            if(isFirst)
+            {
+                retval = value;
+                isFirst = false;
+            }
+            else
+            {
+                if(dynamic_cast<const ValueUnknown *>(retval.get()) != nullptr)
+                {
+                    retval = value;
+                }
+                else if(dynamic_cast<const ValueUnknown *>(value.get()) != nullptr)
+                {
+                    //retval = retval;
+                }
+                else if(retval == nullptr)
+                {
+                    //retval = nullptr;
+                }
+                else if(value == nullptr)
+                {
+                    retval = nullptr;
+                }
+                else if(*retval != *value)
+                {
+                    retval = nullptr;
+                }
+                else
+                {
+                    //retval = retval;
+                }
+            }
+        }
+        return retval;
+    }
+    virtual std::list<std::shared_ptr<SSANode>> getInputs() const override
+    {
+        std::list<std::shared_ptr<SSANode>> retval;
+        for(PhiInput i : inputs)
+        {
+            retval.push_back(i.node.lock());
+        }
+        return std::move(retval);
+    }
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements) override
+    {
+        for(PhiInput i : inputs)
+        {
+            i.node = replaceNode(replacements, i.node.lock());
+        }
+    }
+    virtual void removeBlocks(const std::unordered_set<std::shared_ptr<SSABasicBlock>> &removedBlocks) override
+    {
+        for(auto i = inputs.begin(); i != inputs.end();)
+        {
+            if(removedBlocks.count(i->block.lock()) != 0)
+                i = inputs.erase(i);
+            else
+                ++i;
+        }
+    }
 };
 
 #endif // SSA_PHI_H_INCLUDED

@@ -22,6 +22,7 @@
 #include "ssa_node.h"
 #include "../types/type_builtin.h"
 #include "ssa_visitor.h"
+#include "../values/values.h"
 
 class SSAControlTransfer : public SSANode
 {
@@ -31,6 +32,14 @@ public:
     {
     }
     std::list<std::weak_ptr<SSABasicBlock>> destBlocks;
+    virtual std::shared_ptr<ValueNode> evaluateForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const override
+    {
+        return std::make_shared<ValueUnknown>(context);
+    }
+    virtual std::list<std::weak_ptr<SSABasicBlock>> evaluateControlForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const
+    {
+        return destBlocks;
+    }
 };
 
 class SSAUnconditionalJump final : public SSAControlTransfer
@@ -44,6 +53,13 @@ public:
     virtual void visit(SSANodeVisitor &visitor) override
     {
         visitor.visitSSAUnconditionalJump(std::static_pointer_cast<SSAUnconditionalJump>(shared_from_this()));
+    }
+    virtual std::list<std::shared_ptr<SSANode>> getInputs() const override
+    {
+        return std::list<std::shared_ptr<SSANode>>{};
+    }
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements) override
+    {
     }
 };
 
@@ -60,6 +76,31 @@ public:
     virtual void visit(SSANodeVisitor &visitor) override
     {
         visitor.visitSSAConditionalJump(std::static_pointer_cast<SSAConditionalJump>(shared_from_this()));
+    }
+    virtual std::list<std::weak_ptr<SSABasicBlock>> evaluateControlForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const override
+    {
+        auto iter = values.find(condition.lock());
+        std::shared_ptr<ValueNode> conditionValueNode = nullptr;
+        if(iter != values.end())
+            conditionValueNode = std::get<1>(*iter);
+        if(dynamic_cast<const ValueUnknown *>(conditionValueNode.get()) != nullptr)
+            return std::list<std::weak_ptr<SSABasicBlock>>{};
+        std::shared_ptr<ValueBoolean> conditionValueBoolean = std::dynamic_pointer_cast<ValueBoolean>(conditionValueNode);
+        if(conditionValueBoolean != nullptr)
+        {
+            if(conditionValueBoolean->value)
+                return std::list<std::weak_ptr<SSABasicBlock>>{destBlocks.front()};
+            return std::list<std::weak_ptr<SSABasicBlock>>{destBlocks.back()};
+        }
+        return destBlocks;
+    }
+    virtual std::list<std::shared_ptr<SSANode>> getInputs() const override
+    {
+        return std::list<std::shared_ptr<SSANode>>{condition.lock()};
+    }
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements) override
+    {
+        condition = replaceNode(replacements, condition.lock());
     }
 };
 

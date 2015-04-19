@@ -92,6 +92,10 @@ public:
         return node->toNonVolatile();
     }
     virtual bool operator ==(const TypeNode &rt) const = 0;
+    bool operator !=(const TypeNode &rt) const
+    {
+        return !operator ==(rt);
+    }
     virtual std::size_t getHash() const = 0;
     virtual std::shared_ptr<ValueNode> makeDefaultValue() = 0;
 };

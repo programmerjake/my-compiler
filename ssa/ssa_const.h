@@ -34,6 +34,17 @@ public:
     {
         visitor.visitSSAConstant(std::static_pointer_cast<SSAConstant>(shared_from_this()));
     }
+    virtual std::shared_ptr<ValueNode> evaluateForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const override
+    {
+        return value;
+    }
+    virtual std::list<std::shared_ptr<SSANode>> getInputs() const override
+    {
+        return std::list<std::shared_ptr<SSANode>>{};
+    }
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements) override
+    {
+    }
 };
 
 #endif // SSA_CONST_H_INCLUDED

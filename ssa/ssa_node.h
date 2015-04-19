@@ -22,12 +22,16 @@
 #include <memory>
 #include <list>
 #include <cassert>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "../context.h"
 #include "../types/type.h"
+#include "../values/value.h"
 
 class SSANodeVisitor;
 class SSAControlTransfer;
+class SSABasicBlock;
 
 class SSANode : public std::enable_shared_from_this<SSANode>
 {
@@ -45,27 +49,87 @@ public:
     }
     virtual ~SSANode() = default;
     virtual void visit(SSANodeVisitor &visitor) = 0;
+    virtual std::shared_ptr<ValueNode> evaluateForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const
+    {
+        return nullptr;
+    }
+    virtual std::list<std::shared_ptr<SSANode>> getInputs() const = 0;
+    virtual bool hasSideEffects() const
+    {
+        return false;
+    }
+    static std::shared_ptr<SSANode> replaceNode(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements, std::shared_ptr<SSANode> node)
+    {
+        auto iter = replacements.find(node);
+        if(iter == replacements.end())
+            return node;
+        return std::get<1>(*iter);
+    }
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements) = 0;
+    virtual void removeBlocks(const std::unordered_set<std::shared_ptr<SSABasicBlock>> &removedBlocks)
+    {
+
+    }
 };
 
 class SSABasicBlock : public std::enable_shared_from_this<SSABasicBlock>
 {
 public:
+    CompilerContext *const context;
+    explicit SSABasicBlock(CompilerContext *context)
+        : context(context)
+    {
+    }
     std::list<std::weak_ptr<SSABasicBlock>> sourceBlocks;
-    std::weak_ptr<SSABasicBlock> dominator;
+    std::weak_ptr<SSABasicBlock> immediateDominator;
     std::list<std::weak_ptr<SSABasicBlock>> dominatedBlocks;
     std::list<std::weak_ptr<SSABasicBlock>> destBlocks;
     std::shared_ptr<SSAControlTransfer> controlTransferInstruction;
     std::list<std::shared_ptr<SSANode>> instructions;
+    void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements)
+    {
+        auto iter = replacements.find(std::static_pointer_cast<SSANode>(controlTransferInstruction));
+        if(iter != replacements.end())
+            controlTransferInstruction = std::dynamic_pointer_cast<SSAControlTransfer>(std::get<1>(*iter));
+        for(std::shared_ptr<SSANode> &node : instructions)
+        {
+            auto iter = replacements.find(node);
+            if(iter != replacements.end())
+                node = std::get<1>(*iter);
+            node->replaceNodes(replacements);
+        }
+    }
 };
 
 class SSAFunction : public std::enable_shared_from_this<SSAFunction>
 {
 public:
+    CompilerContext *const context;
+    explicit SSAFunction(CompilerContext *context)
+        : context(context)
+    {
+    }
     std::list<std::shared_ptr<SSABasicBlock>> blocks;
     std::shared_ptr<SSABasicBlock> startBlock;
     std::shared_ptr<SSABasicBlock> endBlock;
     std::list<std::shared_ptr<SSANode>> parameters;
     std::shared_ptr<SSANode> returnValue;
+    void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<SSANode>> &replacements)
+    {
+        auto iter = replacements.find(returnValue);
+        if(iter != replacements.end())
+            returnValue = std::get<1>(*iter);
+        for(std::shared_ptr<SSABasicBlock> block : blocks)
+        {
+            block->replaceNodes(replacements);
+        }
+        for(std::shared_ptr<SSANode> &node : parameters)
+        {
+            auto iter = replacements.find(node);
+            if(iter != replacements.end())
+                node = std::get<1>(*iter);
+        }
+    }
 };
 
 #include "ssa_visitor.h"

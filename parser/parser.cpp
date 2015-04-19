@@ -23,6 +23,7 @@
 #include "../values/values.h"
 #include <unordered_map>
 #include <deque>
+#include "../construct_basic_block_graph.h"
 
 namespace
 {
@@ -333,9 +334,9 @@ private:
         if(condition->type.lock()->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
             throw ParseError("if condition type must be boolean");
         std::shared_ptr<SSABasicBlock> startBlock = currentBasicBlock;
-        std::shared_ptr<SSABasicBlock> thenBlock = std::make_shared<SSABasicBlock>();
-        std::shared_ptr<SSABasicBlock> elseBlock = std::make_shared<SSABasicBlock>();
-        std::shared_ptr<SSABasicBlock> endBlock = std::make_shared<SSABasicBlock>();
+        std::shared_ptr<SSABasicBlock> thenBlock = std::make_shared<SSABasicBlock>(context);
+        std::shared_ptr<SSABasicBlock> elseBlock = std::make_shared<SSABasicBlock>(context);
+        std::shared_ptr<SSABasicBlock> endBlock = std::make_shared<SSABasicBlock>(context);
         currentBasicBlock = thenBlock;
         function->blocks.push_back(currentBasicBlock);
         auto patches = addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{startBlock});
@@ -373,8 +374,8 @@ private:
             throw ParseError("expected do");
         tokenizer.readNext();
         std::shared_ptr<SSABasicBlock> startBlock = currentBasicBlock;
-        std::shared_ptr<SSABasicBlock> loopBlock = std::make_shared<SSABasicBlock>();
-        std::shared_ptr<SSABasicBlock> endBlock = std::make_shared<SSABasicBlock>();
+        std::shared_ptr<SSABasicBlock> loopBlock = std::make_shared<SSABasicBlock>(context);
+        std::shared_ptr<SSABasicBlock> endBlock = std::make_shared<SSABasicBlock>(context);
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, loopBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = loopBlock;
@@ -406,9 +407,9 @@ private:
             throw ParseError("expected while");
         tokenizer.readNext();
         std::shared_ptr<SSABasicBlock> startBlock = currentBasicBlock;
-        std::shared_ptr<SSABasicBlock> conditionBlock = std::make_shared<SSABasicBlock>();
-        std::shared_ptr<SSABasicBlock> loopBlock = std::make_shared<SSABasicBlock>();
-        std::shared_ptr<SSABasicBlock> endBlock = std::make_shared<SSABasicBlock>();
+        std::shared_ptr<SSABasicBlock> conditionBlock = std::make_shared<SSABasicBlock>(context);
+        std::shared_ptr<SSABasicBlock> loopBlock = std::make_shared<SSABasicBlock>(context);
+        std::shared_ptr<SSABasicBlock> endBlock = std::make_shared<SSABasicBlock>(context);
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, conditionBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = conditionBlock;
@@ -444,10 +445,10 @@ private:
         tokenizer.readNext();
         expressionOrDeclaration();
         std::shared_ptr<SSABasicBlock> startBlock = currentBasicBlock;
-        std::shared_ptr<SSABasicBlock> conditionBlock = std::make_shared<SSABasicBlock>();
-        std::shared_ptr<SSABasicBlock> updateBlock = std::make_shared<SSABasicBlock>();
-        std::shared_ptr<SSABasicBlock> loopBlock = std::make_shared<SSABasicBlock>();
-        std::shared_ptr<SSABasicBlock> endBlock = std::make_shared<SSABasicBlock>();
+        std::shared_ptr<SSABasicBlock> conditionBlock = std::make_shared<SSABasicBlock>(context);
+        std::shared_ptr<SSABasicBlock> updateBlock = std::make_shared<SSABasicBlock>(context);
+        std::shared_ptr<SSABasicBlock> loopBlock = std::make_shared<SSABasicBlock>(context);
+        std::shared_ptr<SSABasicBlock> endBlock = std::make_shared<SSABasicBlock>(context);
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, conditionBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = conditionBlock;
@@ -590,15 +591,16 @@ public:
     {
         symbolTables.clear();
         pushSymbolTable();
-        function = std::make_shared<SSAFunction>();
-        function->startBlock = std::make_shared<SSABasicBlock>();
+        function = std::make_shared<SSAFunction>(context);
+        function->startBlock = std::make_shared<SSABasicBlock>(context);
         function->blocks.push_back(function->startBlock);
-        function->endBlock = std::make_shared<SSABasicBlock>();
+        function->endBlock = std::make_shared<SSABasicBlock>(context);
         function->blocks.push_back(function->endBlock);
         currentBasicBlock = function->startBlock;
         block();
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, function->endBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
+        ConstructBasicBlockGraphVisitor().visitSSAFunction(function);
         return function;
     }
 };
