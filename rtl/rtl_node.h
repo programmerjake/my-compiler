@@ -23,6 +23,7 @@
 #include "../values/value.h"
 #include "../context.h"
 #include <memory>
+#include <list>
 
 class RTLRegister final : public std::enable_shared_from_this<RTLNode>
 {
@@ -41,24 +42,70 @@ public:
     }
 };
 
+class RTLNodeVisitor;
+
 class RTLNode : public std::enable_shared_from_this<RTLNode>
 {
     RTLNode(const RTLNode &) = delete;
     RTLNode &operator =(const RTLNode &) = delete;
 public:
     CompilerContext *const context;
-    std::weak_ptr<TypeNode> type;
-    RTLNode(CompilerContext *context, std::shared_ptr<TypeNode> type)
-        : context(context), type(type)
+    explicit RTLNode(CompilerContext *context)
+        : context(context)
     {
     }
     virtual ~RTLNode() = default;
-    virtual bool operator ==(const RTLNode &rt) const = 0;
-    bool operator !=(const RTLNode &rt) const
+    virtual std::list<std::shared_ptr<RTLRegister>> getOutputRegisters() const = 0;
+    virtual std::list<std::shared_ptr<RTLRegister>> getInputRegisters() const = 0;
+    virtual void visit(RTLNodeVisitor &visitor) = 0;
+    virtual bool hasSideEffects() const
     {
-        return !operator ==(rt);
+        return false;
     }
+};
 
+class RTLBasicBlock final : public std::enable_shared_from_this<RTLBasicBlock>
+{
+public:
+    std::list<std::weak_ptr<RTLBasicBlock>> sourceBlocks;
+    std::list<std::weak_ptr<RTLBasicBlock>> destBlocks;
+    std::list<std::shared_ptr<RTLNode>> instructions;
+};
+
+class RTLLoadConstant;
+
+class RTLNodeVisitor
+{
+public:
+    virtual void visitRTLLoadConstant(std::shared_ptr<RTLLoadConstant> node) = 0;
+};
+
+class RTLControlTransfer : public RTLNode
+{
+
+};
+
+class RTLLoadConstant final : public RTLNode
+{
+public:
+    std::shared_ptr<RTLRegister> destRegister;
+    std::shared_ptr<ValueNode> value;
+    RTLLoadConstant(std::shared_ptr<RTLRegister> destRegister, std::shared_ptr<ValueNode> value)
+        : RTLNode(destRegister->context), destRegister(destRegister), value(value)
+    {
+    }
+    virtual std::list<std::shared_ptr<RTLRegister>> getOutputRegisters() const override
+    {
+        return std::list<std::shared_ptr<RTLRegister>>{destRegister};
+    }
+    virtual std::list<std::shared_ptr<RTLRegister>> getInputRegisters() const override
+    {
+        return std::list<std::shared_ptr<RTLRegister>>{};
+    }
+    virtual void visit(RTLNodeVisitor &visitor) override
+    {
+        visitor.visitRTLLoadConstant(std::static_pointer_cast<RTLLoadConstant>(shared_from_this()));
+    }
 };
 
 #endif // RTL_NODE_H_INCLUDED
