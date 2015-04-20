@@ -45,6 +45,7 @@
 		<Unit filename="optimization/phi_removal/phi_removal.h" />
 		<Unit filename="parser/parser.cpp" />
 		<Unit filename="parser/parser.h" />
+		<Unit filename="rtl/rtl_node.h" />
 		<Unit filename="ssa/ssa_const.h" />
 		<Unit filename="ssa/ssa_control_transfer.h" />
 		<Unit filename="ssa/ssa_node.h" />
