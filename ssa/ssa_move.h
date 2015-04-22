@@ -16,35 +16,39 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#ifndef SSA_CONST_H_INCLUDED
-#define SSA_CONST_H_INCLUDED
+#ifndef SSA_MOVE_H_INCLUDED
+#define SSA_MOVE_H_INCLUDED
 
 #include "ssa_node.h"
 #include "../values/value.h"
 
-class SSAConstant final : public SSANode
+class SSAMove final : public SSANode
 {
 public:
-    std::shared_ptr<ValueNode> value;
-    SSAConstant(std::shared_ptr<ValueNode> value)
-        : SSANode(value->context, value->type), value(value)
+    std::weak_ptr<SSANode> source;
+    SSAMove(std::shared_ptr<SSANode> source)
+        : SSANode(source->context, source->type), source(source)
     {
     }
     virtual void visit(SSANodeVisitor &visitor) override
     {
-        visitor.visitSSAConstant(std::static_pointer_cast<SSAConstant>(shared_from_this()));
+        visitor.visitSSAMove(std::static_pointer_cast<SSAMove>(shared_from_this()));
     }
     virtual std::shared_ptr<ValueNode> evaluateForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const override
     {
-        return value;
+        auto iter = values.find(source.lock());
+        if(iter != values.end())
+            return std::get<1>(*iter);
+        return nullptr;
     }
     virtual std::list<std::shared_ptr<SSANode>> getInputs() const override
     {
-        return std::list<std::shared_ptr<SSANode>>{};
+        return std::list<std::shared_ptr<SSANode>>{source.lock()};
     }
     virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
     {
+        source = replaceNode(replacements, source.lock());
     }
 };
 
-#endif // SSA_CONST_H_INCLUDED
+#endif // SSA_MOVE_H_INCLUDED

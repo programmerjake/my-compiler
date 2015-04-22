@@ -27,6 +27,7 @@
 #include "optimization/const_dead_code/const_dead_code.h"
 #include "optimization/phi_removal/phi_removal.h"
 #include "optimization/control_flow_simplification/control_flow_simplification.h"
+#include "convert_ssa_to_rtl.h"
 
 std::shared_ptr<SSAFunction> makeFunction(CompilerContext *context)
 {
@@ -55,21 +56,9 @@ std::shared_ptr<SSAFunction> makeFunction(CompilerContext *context)
 std::string getSourceCode()
 {
     return
-R"(boolean e = false;
-for(boolean a = true, b = true; a; a = b, b = false)
+R"(for(boolean x = true, y = true; y; y = x, x = false)
 {
-    boolean c = true, d = true;
-    while(c)
-    {
-        c = d;
-        d = false;
-        do
-        {
-            if(e)
-                d = true;
-        }
-        while(false);
-    }
+
 }
 )";
 }
@@ -122,10 +111,8 @@ int main(int argc, char **argv)
     PhiRemoval().visitSSAFunction(fn);
     ConstantPropagationAndDeadCodeElimination().visitSSAFunction(fn);
     ControlFlowSimplification().visitSSAFunction(fn);
-    {
-        DumpVisitor dumper(std::cout);
-        dumper.visitSSAFunction(fn);
-    }
+    std::shared_ptr<RTLFunction> rtlFn = ConvertSSAToRTL().visitSSAFunction(fn);
+    DumpVisitor(std::cout).visitRTLFunction(rtlFn);
     std::cout << std::endl << std::endl;
     return 0;
 }

@@ -50,8 +50,13 @@ void DumpVisitor::visitSSAConstant(std::shared_ptr<SSAConstant> node)
     os << "(value=";
     node->value->visit(*this);
     os << ",type=";
-    node->type.lock()->visit(*this);
+    node->type->visit(*this);
     os << ")";
+}
+void DumpVisitor::visitSSAMove(std::shared_ptr<SSAMove> node)
+{
+    dumpInstructionName("SSAMove", node);
+    os << "(source=" << getSSANodeDisplayValue(node->source.lock()) << ")";
 }
 void DumpVisitor::visitTypeConstant(std::shared_ptr<TypeConstant> node)
 {
@@ -85,6 +90,39 @@ void DumpVisitor::visitValueBoolean(std::shared_ptr<ValueBoolean> node)
 void DumpVisitor::visitValueUnknown(std::shared_ptr<ValueUnknown> node)
 {
     os << "ValueUnknown()";
+}
+
+void DumpVisitor::visitRTLLoadConstant(std::shared_ptr<RTLLoadConstant> node)
+{
+    os << "RTLLoadConstant(destRegister=";
+    dumpRTLRegister(node->destRegister);
+    os << ",value=";
+    node->value->visit(*this);
+    os << ")";
+}
+void DumpVisitor::visitRTLMove(std::shared_ptr<RTLMove> node)
+{
+    os << "RTLMove(destRegister=";
+    dumpRTLRegister(node->destRegister);
+    os << ",sourceRegister=";
+    dumpRTLRegister(node->sourceRegister);
+    os << ")";
+}
+void DumpVisitor::visitRTLUnconditionalJump(std::shared_ptr<RTLUnconditionalJump> node)
+{
+    os << "RTLUnconditionalJump(target=";
+    os << getRTLBasicBlockDisplayValue(node->target.lock());
+    os << ")";
+}
+void DumpVisitor::visitRTLConditionalJump(std::shared_ptr<RTLConditionalJump> node)
+{
+    os << "RTLConditionalJump(condition=";
+    dumpRTLRegister(node->condition);
+    os << ",trueTarget=";
+    os << getRTLBasicBlockDisplayValue(node->trueTarget.lock());
+    os << ",falseTarget=";
+    os << getRTLBasicBlockDisplayValue(node->falseTarget.lock());
+    os << ")";
 }
 
 void DumpVisitor::visitSSABasicBlock(std::shared_ptr<SSABasicBlock> node)
@@ -125,6 +163,48 @@ void DumpVisitor::visitSSAFunction(std::shared_ptr<SSAFunction> node)
         os << seperator;
         seperator = ",\n";
         visitSSABasicBlock(i);
+    }
+    os << "\n)";
+}
+
+void DumpVisitor::dumpRTLRegister(std::shared_ptr<RTLRegister> r)
+{
+    if(r == nullptr)
+        os << "nullptr";
+    else
+        os << r->name;
+}
+
+void DumpVisitor::visitRTLBasicBlock(std::shared_ptr<RTLBasicBlock> node)
+{
+    os << "  [" << getRTLBasicBlockDisplayValue(node) << "]RTLBasicBlock(";
+    const char *seperator = "\n    ";
+    for(std::shared_ptr<RTLNode> i : node->instructions)
+    {
+        os << seperator;
+        seperator = ",\n    ";
+        visitRTLNode(i);
+    }
+    os << "\n  )";
+}
+
+void DumpVisitor::visitRTLFunction(std::shared_ptr<RTLFunction> node)
+{
+    for(std::shared_ptr<RTLBasicBlock> i : node->blocks)
+    {
+        getRTLBasicBlockDisplayValue(i);
+        for(std::shared_ptr<RTLNode> j : i->instructions)
+        {
+            getRTLNodeDisplayValue(j);
+        }
+    }
+    os << "[" << getRTLFunctionDisplayValue(node) << "]RTLFunction(";
+    const char *seperator = "\n";
+    for(std::shared_ptr<RTLBasicBlock> i : node->blocks)
+    {
+        os << seperator;
+        seperator = ",\n";
+        visitRTLBasicBlock(i);
     }
     os << "\n)";
 }

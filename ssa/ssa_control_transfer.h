@@ -24,7 +24,7 @@
 #include "ssa_visitor.h"
 #include "../values/values.h"
 
-class SSAControlTransfer : public SSANode
+class SSAControlTransfer : public SSANode // can't have a value
 {
 public:
     explicit SSAControlTransfer(CompilerContext *context)
@@ -32,13 +32,17 @@ public:
     {
     }
     std::list<std::weak_ptr<SSABasicBlock>> destBlocks;
-    virtual std::shared_ptr<ValueNode> evaluateForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const override
+    virtual std::shared_ptr<ValueNode> evaluateForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const override final
     {
-        return std::make_shared<ValueUnknown>(context);
+        return nullptr;
     }
     virtual std::list<std::weak_ptr<SSABasicBlock>> evaluateControlForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const
     {
         return destBlocks;
+    }
+    virtual bool hasSideEffects() const final
+    {
+        return false;
     }
     virtual void replaceBlock(std::shared_ptr<SSABasicBlock> searchFor, std::shared_ptr<SSABasicBlock> replaceWith) override
     {

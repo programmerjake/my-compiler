@@ -39,7 +39,7 @@ class ValueNode : public std::enable_shared_from_this<ValueNode>
 public:
     virtual ~ValueNode() = default;
     CompilerContext *const context;
-    std::weak_ptr<TypeNode> type;
+    std::shared_ptr<TypeNode> type;
     ValueNode(CompilerContext *context, std::shared_ptr<TypeNode> type)
         : context(context), type(type)
     {

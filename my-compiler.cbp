@@ -11,7 +11,6 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="-" />
 				<Compiler>
 					<Add option="-g" />
 				</Compiler>
@@ -35,8 +34,10 @@
 			<Add option="-fexceptions" />
 		</Compiler>
 		<Unit filename="construct_basic_block_graph.h" />
+		<Unit filename="construct_liveness_info.h" />
 		<Unit filename="context.cpp" />
 		<Unit filename="context.h" />
+		<Unit filename="convert_ssa_to_rtl.h" />
 		<Unit filename="dump.cpp" />
 		<Unit filename="dump.h" />
 		<Unit filename="main.cpp" />
@@ -46,8 +47,10 @@
 		<Unit filename="parser/parser.cpp" />
 		<Unit filename="parser/parser.h" />
 		<Unit filename="rtl/rtl_node.h" />
+		<Unit filename="rtl/rtl_nodes.h" />
 		<Unit filename="ssa/ssa_const.h" />
 		<Unit filename="ssa/ssa_control_transfer.h" />
+		<Unit filename="ssa/ssa_move.h" />
 		<Unit filename="ssa/ssa_node.h" />
 		<Unit filename="ssa/ssa_nodes.h" />
 		<Unit filename="ssa/ssa_phi.h" />

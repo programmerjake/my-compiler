@@ -207,7 +207,7 @@ private:
                 std::shared_ptr<SSANode> &node = symbol->nodes[currentBasicBlock];
                 if(node == nullptr)
                     throw std::logic_error("old node was null in assign");
-                if(newNode->type.lock() != node->type.lock())
+                if(newNode->type != node->type)
                     throw ParseError("types don't match for =");
                 node = newNode;
                 return node;
@@ -334,7 +334,7 @@ private:
         if(tokenizer.tokenType != TokenType::LParen)
             throw ParseError("expected (");
         std::shared_ptr<SSANode> condition = expression(); // handles parenthesis
-        if(condition->type.lock()->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
+        if(condition->type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
             throw ParseError("if condition type must be boolean");
         std::shared_ptr<SSABasicBlock> startBlock = currentBasicBlock;
         std::shared_ptr<SSABasicBlock> thenBlock = std::make_shared<SSABasicBlock>(context);
@@ -391,7 +391,7 @@ private:
         if(tokenizer.tokenType != TokenType::LParen)
             throw ParseError("expected (");
         std::shared_ptr<SSANode> condition = expression(); // handles parenthesis
-        if(condition->type.lock()->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
+        if(condition->type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
             throw ParseError("do while condition type must be boolean");
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAConditionalJump>(context, condition, loopBlock, endBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
@@ -421,7 +421,7 @@ private:
         if(tokenizer.tokenType != TokenType::LParen)
             throw ParseError("expected (");
         std::shared_ptr<SSANode> condition = expression(); // handles parenthesis
-        if(condition->type.lock()->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
+        if(condition->type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
             throw ParseError("while condition type must be boolean");
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAConditionalJump>(context, condition, loopBlock, endBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
@@ -461,7 +461,7 @@ private:
         if(tokenizer.tokenType != TokenType::Semicolon)
             throw ParseError("expected ;");
         tokenizer.readNext();
-        if(condition->type.lock()->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
+        if(condition->type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
             throw ParseError("for condition type must be boolean");
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAConditionalJump>(context, condition, loopBlock, endBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);

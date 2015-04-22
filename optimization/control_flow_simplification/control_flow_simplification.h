@@ -30,6 +30,9 @@
 #include <iostream>
 #include <cassert>
 
+/** simplify control flow
+ * @note this doesn't change phi functions : required for use in ConvertSSAToRTL
+ */
 class ControlFlowSimplification final
 {
 public:

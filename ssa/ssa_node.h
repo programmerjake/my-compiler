@@ -39,7 +39,7 @@ class SSANode : public std::enable_shared_from_this<SSANode>
     SSANode &operator =(const SSANode &) = delete;
 public:
     CompilerContext *const context;
-    std::weak_ptr<TypeNode> type;
+    std::shared_ptr<TypeNode> type;
     explicit SSANode(CompilerContext *context, std::shared_ptr<TypeNode> type)
         : context(context), type(type)
     {
@@ -98,7 +98,7 @@ public:
     std::list<std::weak_ptr<SSABasicBlock>> dominatedBlocks;
     std::list<std::weak_ptr<SSABasicBlock>> destBlocks;
     std::shared_ptr<SSAControlTransfer> controlTransferInstruction;
-    std::list<std::shared_ptr<SSANode>> instructions;
+    std::list<std::shared_ptr<SSANode>> instructions; /// all SSAPhi nodes must be first and the only allowed SSAControlTransfer must be last
     void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, SSANode::ReplacementNode> &replacements)
     {
         auto iter = replacements.find(std::static_pointer_cast<SSANode>(controlTransferInstruction));
@@ -275,6 +275,37 @@ public:
         firstBlock->controlTransferInstruction = secondBlock->controlTransferInstruction;
         replaceBlock(secondBlock, firstBlock);
         firstBlock->destBlocks = secondBlock->destBlocks;
+    }
+    std::shared_ptr<SSABasicBlock> splitEdge(std::shared_ptr<SSABasicBlock> firstBlock, std::shared_ptr<SSABasicBlock> secondBlock)
+    {
+        std::shared_ptr<SSABasicBlock> retval = std::make_shared<SSABasicBlock>(context);
+        retval->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, secondBlock);
+        retval->instructions.push_back(retval->controlTransferInstruction);
+        retval->immediateDominator = firstBlock;
+        retval->sourceBlocks.push_back(firstBlock);
+        retval->destBlocks.push_back(secondBlock);
+        if(secondBlock->immediateDominator.lock() == firstBlock)
+        {
+            secondBlock->immediateDominator = retval;
+            for(std::shared_ptr<SSABasicBlock> block : blocks)
+            {
+                for(std::shared_ptr<SSABasicBlock> i = block->immediateDominator.lock(); i != nullptr; i = i->immediateDominator.lock())
+                {
+                    if(i == retval)
+                    {
+                        retval->dominatedBlocks.push_back(block);
+                        break;
+                    }
+                }
+            }
+        }
+        firstBlock->replaceBlock(secondBlock, retval);
+        if(firstBlock != secondBlock)
+            secondBlock->replaceBlock(firstBlock, retval);
+        firstBlock->dominatedBlocks.push_back(retval);
+        retval->dominatedBlocks.push_back(retval);
+        blocks.push_back(retval);
+        return retval;
     }
 };
 

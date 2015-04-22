@@ -145,15 +145,13 @@ public:
                 {
                     if(dynamic_cast<const SSAUnconditionalJump *>(controlTransferNode.get()) != nullptr)
                         continue;
-                    if(!isValueUndefined(value))
-                        continue;
                     const std::unordered_set<std::shared_ptr<SSABasicBlock>> &targetSet = targetSets[controlTransferNode];
                     if(targetSet.size() != 1)
                         continue;
                     std::shared_ptr<SSANode> replacementNode = std::make_shared<SSAUnconditionalJump>(function->context, *targetSet.begin());
                     assert(replacementNode != nullptr);
                     nodeReplacementMap.emplace(node, SSANode::ReplacementNode(replacementNode, false));
-                    values[replacementNode] = value;
+                    values[replacementNode] = nullptr;
                     blocks[replacementNode] = block;
                 }
                 if(dynamic_cast<const SSAConstant *>(node.get()) != nullptr)

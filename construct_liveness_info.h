@@ -16,14 +16,9 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#ifndef SSA_NODES_H_INCLUDED
-#define SSA_NODES_H_INCLUDED
+#ifndef CONSTRUCT_LIVENESS_INFO_H_INCLUDED
+#define CONSTRUCT_LIVENESS_INFO_H_INCLUDED
 
-#include "ssa_node.h"
-#include "ssa_visitor.h"
-#include "ssa_const.h"
-#include "ssa_move.h"
-#include "ssa_control_transfer.h"
-#include "ssa_phi.h"
 
-#endif // SSA_NODES_H_INCLUDED
+
+#endif // CONSTRUCT_LIVENESS_INFO_H_INCLUDED

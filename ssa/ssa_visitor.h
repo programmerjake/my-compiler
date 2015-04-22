@@ -24,6 +24,7 @@ class SSAUnconditionalJump;
 class SSAConditionalJump;
 class SSAPhi;
 class SSAConstant;
+class SSAMove;
 
 class SSANodeVisitor
 {
@@ -33,6 +34,7 @@ public:
     virtual void visitSSAConditionalJump(std::shared_ptr<SSAConditionalJump> node) = 0;
     virtual void visitSSAPhi(std::shared_ptr<SSAPhi> node) = 0;
     virtual void visitSSAConstant(std::shared_ptr<SSAConstant> node) = 0;
+    virtual void visitSSAMove(std::shared_ptr<SSAMove> node) = 0;
 };
 
 #endif // SSA_VISITOR_H_INCLUDED

@@ -37,13 +37,13 @@ private:
         assert(!inputs.empty());
         std::shared_ptr<SSANode> node = inputs.front().node.lock();
         assert(node);
-        std::shared_ptr<TypeNode> type = node->type.lock();
+        std::shared_ptr<TypeNode> type = node->type;
         assert(type);
 #ifndef NDEBUG
         for(const PhiInput &i : inputs)
         {
             std::shared_ptr<SSANode> in = i.node.lock();
-            assert(in->type.lock() == type);
+            assert(in->type == type);
         }
 #endif
         return type;

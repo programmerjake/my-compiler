@@ -22,12 +22,13 @@
 #include "ssa/ssa_visitor.h"
 #include "types/type.h"
 #include "values/value.h"
+#include "rtl/rtl_nodes.h"
 
 #include <ostream>
 #include <memory>
 #include <unordered_map>
 
-class DumpVisitor final : public SSANodeVisitor, public TypeVisitor, public ValueNodeVisitor
+class DumpVisitor final : public SSANodeVisitor, public TypeVisitor, public ValueNodeVisitor, public RTLNodeVisitor
 {
 private:
     std::ostream &os;
@@ -70,10 +71,50 @@ public:
         return ssaFunctionMap[node] = nextSSAFunction++;
     }
 private:
+    std::unordered_map<std::shared_ptr<RTLNode>, std::size_t> rtlNodeMap;
+    std::size_t nextRTLNode = 1;
+public:
+    std::size_t getRTLNodeDisplayValue(std::shared_ptr<RTLNode> node)
+    {
+        if(node == nullptr)
+            return 0;
+        auto iter = rtlNodeMap.find(node);
+        if(iter != rtlNodeMap.end())
+            return std::get<1>(*iter);
+        return rtlNodeMap[node] = nextRTLNode++;
+    }
+private:
+    std::unordered_map<std::shared_ptr<RTLBasicBlock>, std::size_t> rtlBasicBlockMap;
+    std::size_t nextRTLBasicBlock = 1;
+public:
+    std::size_t getRTLBasicBlockDisplayValue(std::shared_ptr<RTLBasicBlock> node)
+    {
+        if(node == nullptr)
+            return 0;
+        auto iter = rtlBasicBlockMap.find(node);
+        if(iter != rtlBasicBlockMap.end())
+            return std::get<1>(*iter);
+        return rtlBasicBlockMap[node] = nextRTLBasicBlock++;
+    }
+private:
+    std::unordered_map<std::shared_ptr<RTLFunction>, std::size_t> rtlFunctionMap;
+    std::size_t nextRTLFunction = 1;
+public:
+    std::size_t getRTLFunctionDisplayValue(std::shared_ptr<RTLFunction> node)
+    {
+        if(node == nullptr)
+            return 0;
+        auto iter = rtlFunctionMap.find(node);
+        if(iter != rtlFunctionMap.end())
+            return std::get<1>(*iter);
+        return rtlFunctionMap[node] = nextRTLFunction++;
+    }
+private:
     void dumpInstructionName(const char *name, std::shared_ptr<SSANode> node)
     {
         os << "[" << getSSANodeDisplayValue(node) << "]" << name;
     }
+    void dumpRTLRegister(std::shared_ptr<RTLRegister> r);
 public:
     explicit DumpVisitor(std::ostream &os)
         : os(os)
@@ -83,18 +124,29 @@ public:
     virtual void visitSSAConditionalJump(std::shared_ptr<SSAConditionalJump> node) override;
     virtual void visitSSAPhi(std::shared_ptr<SSAPhi> node) override;
     virtual void visitSSAConstant(std::shared_ptr<SSAConstant> node) override;
+    virtual void visitSSAMove(std::shared_ptr<SSAMove> node) override;
     virtual void visitTypeConstant(std::shared_ptr<TypeConstant> node) override;
     virtual void visitTypeVolatile(std::shared_ptr<TypeVolatile> node) override;
     virtual void visitTypeVoid(std::shared_ptr<TypeVoid> node) override;
     virtual void visitTypeBoolean(std::shared_ptr<TypeBoolean> node) override;
     virtual void visitValueBoolean(std::shared_ptr<ValueBoolean> node) override;
     virtual void visitValueUnknown(std::shared_ptr<ValueUnknown> node) override;
+    virtual void visitRTLLoadConstant(std::shared_ptr<RTLLoadConstant> node) override;
+    virtual void visitRTLMove(std::shared_ptr<RTLMove> node) override;
+    virtual void visitRTLUnconditionalJump(std::shared_ptr<RTLUnconditionalJump> node) override;
+    virtual void visitRTLConditionalJump(std::shared_ptr<RTLConditionalJump> node) override;
     void visitSSANode(std::shared_ptr<SSANode> node)
     {
         node->visit(*this);
     }
     void visitSSABasicBlock(std::shared_ptr<SSABasicBlock> node);
     void visitSSAFunction(std::shared_ptr<SSAFunction> node);
+    void visitRTLNode(std::shared_ptr<RTLNode> node)
+    {
+        node->visit(*this);
+    }
+    void visitRTLBasicBlock(std::shared_ptr<RTLBasicBlock> node);
+    void visitRTLFunction(std::shared_ptr<RTLFunction> node);
 };
 
 #endif // DUMP_H_INCLUDED

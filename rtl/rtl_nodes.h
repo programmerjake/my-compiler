@@ -16,14 +16,9 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#ifndef SSA_NODES_H_INCLUDED
-#define SSA_NODES_H_INCLUDED
+#ifndef RTL_NODES_H_INCLUDED
+#define RTL_NODES_H_INCLUDED
 
-#include "ssa_node.h"
-#include "ssa_visitor.h"
-#include "ssa_const.h"
-#include "ssa_move.h"
-#include "ssa_control_transfer.h"
-#include "ssa_phi.h"
+#include "rtl_node.h"
 
-#endif // SSA_NODES_H_INCLUDED
+#endif // RTL_NODES_H_INCLUDED
