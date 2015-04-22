@@ -30,16 +30,10 @@
 class RTLRegister final : public std::enable_shared_from_this<RTLRegister>
 {
 public:
-    enum class RegisterType
-    {
-        Virtual,
-        Physical,
-    };
     CompilerContext *const context;
-    const RegisterType registerType;
     const std::string name;
-    RTLRegister(CompilerContext *context, RegisterType registerType, std::string name)
-        : context(context), registerType(registerType), name(name)
+    RTLRegister(CompilerContext *context, std::string name)
+        : context(context), name(name)
     {
     }
 };

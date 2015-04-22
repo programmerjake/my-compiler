@@ -240,7 +240,7 @@ public:
                 std::shared_ptr<RTLRegister> &r = nodeSetToRegisterMap[nodeSetMap[node]];
                 if(r == nullptr)
                 {
-                    r = std::make_shared<RTLRegister>(function->context, RTLRegister::RegisterType::Virtual, makeVirtualRegisterName());
+                    r = std::make_shared<RTLRegister>(function->context, makeVirtualRegisterName());
                 }
                 registerMap[node] = r;
                 reverseRegisterMap[r].insert(node);

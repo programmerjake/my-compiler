@@ -28,6 +28,8 @@
 #include "optimization/phi_removal/phi_removal.h"
 #include "optimization/control_flow_simplification/control_flow_simplification.h"
 #include "convert_ssa_to_rtl.h"
+#include "backend/backend.h"
+#include "backend/x86_64/x86_64_backend.h"
 
 std::shared_ptr<SSAFunction> makeFunction(CompilerContext *context)
 {
@@ -112,7 +114,7 @@ int main(int argc, char **argv)
     ConstantPropagationAndDeadCodeElimination().visitSSAFunction(fn);
     ControlFlowSimplification().visitSSAFunction(fn);
     std::shared_ptr<RTLFunction> rtlFn = ConvertSSAToRTL().visitSSAFunction(fn);
-    DumpVisitor(std::cout).visitRTLFunction(rtlFn);
-    std::cout << std::endl << std::endl;
+    BackendX86_64 backend(BackendX86_64::AssemblyDialect::GAS_Intel);
+    backend.outputAsAssembly(std::cout, std::list<std::shared_ptr<RTLFunction>>{rtlFn});
     return 0;
 }
