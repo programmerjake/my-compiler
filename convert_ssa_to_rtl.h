@@ -26,6 +26,7 @@
 #include "optimization/control_flow_simplification/control_flow_simplification.h"
 #include "optimization/phi_removal/phi_removal.h"
 #include "dump.h"
+#include "construct_liveness_info.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -253,6 +254,7 @@ public:
         {
             visitSSABasicBlock(block);
         }
+        ConstructLivenessInfo().visitRTLFunction(currentlyGeneratingFunction);
         clearAllButFunctionMap();
         return functionMap[function];
     }

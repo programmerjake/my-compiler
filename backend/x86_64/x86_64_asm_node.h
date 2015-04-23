@@ -101,6 +101,10 @@ public:
     std::list<std::shared_ptr<X86_64AsmNode>> instructions;
     std::list<std::weak_ptr<X86_64AsmBasicBlock>> sourceBlocks;
     std::list<std::weak_ptr<X86_64AsmBasicBlock>> destBlocks;
+    std::unordered_set<std::shared_ptr<X86_64AsmRegister>> usedRegistersAtStart;
+    std::unordered_set<std::shared_ptr<X86_64AsmRegister>> assignedRegisters;
+    std::unordered_set<std::shared_ptr<X86_64AsmRegister>> liveRegistersAtStart;
+    std::unordered_set<std::shared_ptr<X86_64AsmRegister>> liveRegistersAtEnd;
 };
 
 class X86_64AsmFunction final : public std::enable_shared_from_this<X86_64AsmFunction>
@@ -174,6 +178,51 @@ enum class X86_64ConditionType
     E,
     NE,
 };
+
+inline X86_64ConditionType X86_64InvertCondition(X86_64ConditionType c)
+{
+    switch(c)
+    {
+    case X86_64ConditionType::Z:
+        return X86_64ConditionType::NZ;
+    case X86_64ConditionType::NZ:
+        return X86_64ConditionType::Z;
+    case X86_64ConditionType::S:
+        return X86_64ConditionType::NS;
+    case X86_64ConditionType::NS:
+        return X86_64ConditionType::S;
+    case X86_64ConditionType::O:
+        return X86_64ConditionType::NO;
+    case X86_64ConditionType::NO:
+        return X86_64ConditionType::O;
+    case X86_64ConditionType::C:
+        return X86_64ConditionType::NC;
+    case X86_64ConditionType::NC:
+        return X86_64ConditionType::C;
+    case X86_64ConditionType::B:
+        return X86_64ConditionType::AE;
+    case X86_64ConditionType::BE:
+        return X86_64ConditionType::A;
+    case X86_64ConditionType::AE:
+        return X86_64ConditionType::B;
+    case X86_64ConditionType::A:
+        return X86_64ConditionType::BE;
+    case X86_64ConditionType::L:
+        return X86_64ConditionType::GE;
+    case X86_64ConditionType::LE:
+        return X86_64ConditionType::G;
+    case X86_64ConditionType::GE:
+        return X86_64ConditionType::L;
+    case X86_64ConditionType::G:
+        return X86_64ConditionType::GE;
+    case X86_64ConditionType::E:
+        return X86_64ConditionType::NE;
+    case X86_64ConditionType::NE:
+        return X86_64ConditionType::E;
+    }
+    assert(false);
+    return X86_64ConditionType::NE;
+}
 
 inline std::string X86_64GetJmpName(X86_64ConditionType condition)
 {

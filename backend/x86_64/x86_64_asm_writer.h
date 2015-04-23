@@ -24,12 +24,15 @@
 #include <string>
 #include <sstream>
 #include <unordered_map>
+#include <vector>
 
 class X86_64AsmWriter_GAS_Intel final : public X86_64AsmNodeVisitor
 {
 private:
     std::ostream &os;
+    bool doBlockJoining = true;
     std::unordered_map<std::shared_ptr<X86_64AsmBasicBlock>, std::string> blockLabelMap;
+    std::unordered_map<std::shared_ptr<X86_64AsmBasicBlock>, bool> blockJoinMap;
     std::size_t nextLabelIndex = 0;
     std::string getBlockLabel(std::shared_ptr<X86_64AsmBasicBlock> block)
     {
@@ -48,19 +51,71 @@ private:
         : os(os)
     {
     }
+    enum class Phase
+    {
+        CreateBlockJoinMap,
+        Write
+    };
+    Phase phase = Phase::CreateBlockJoinMap;
+    std::shared_ptr<X86_64AsmBasicBlock> currentBlock, nextBlock;
 public:
     virtual void visitX86_64AsmNodeJump(std::shared_ptr<X86_64AsmNodeJump> node) override
     {
-        os << "    jmp " << getBlockLabel(node->target.lock()) << "\n";
+        switch(phase)
+        {
+        case Phase::CreateBlockJoinMap:
+            if(node->target.lock() == nextBlock)
+            {
+                blockJoinMap[nextBlock] = true;
+            }
+            break;
+        case Phase::Write:
+            if(!doBlockJoining || node->target.lock() != nextBlock)
+                os << "    jmp " << getBlockLabel(node->target.lock()) << "\n";
+            break;
+        }
     }
     virtual void visitX86_64AsmNodeCompareAgainstConstantAndJump(std::shared_ptr<X86_64AsmNodeCompareAgainstConstantAndJump> node) override
     {
-        std::shared_ptr<ValueBoolean> rhs = std::dynamic_pointer_cast<ValueBoolean>(node->rhs);
-        if(rhs == nullptr)
-            throw NotImplementedException("type not implemented");
-        os << "    cmp " << node->lhs->name << ", " << (rhs->value ? "1" : "0") << "\n";
-        os << "    " << X86_64GetJmpName(node->conditionType) << " " << getBlockLabel(node->trueTarget.lock()) << "\n";
-        os << "    jmp " << getBlockLabel(node->falseTarget.lock()) << "\n";
+        switch(phase)
+        {
+        case Phase::CreateBlockJoinMap:
+            if(node->trueTarget.lock() == nextBlock || node->falseTarget.lock() == nextBlock)
+            {
+                blockJoinMap[nextBlock] = true;
+            }
+            break;
+        case Phase::Write:
+        {
+            bool reversed = false;
+            bool skipFinalJump = false;
+            if(doBlockJoining && node->trueTarget.lock() == nextBlock)
+            {
+                skipFinalJump = true;
+                reversed = true;
+            }
+            if(doBlockJoining && node->falseTarget.lock() == nextBlock)
+            {
+                skipFinalJump = true;
+            }
+            std::shared_ptr<ValueBoolean> rhs = std::dynamic_pointer_cast<ValueBoolean>(node->rhs);
+            if(rhs == nullptr)
+                throw NotImplementedException("type not implemented");
+            os << "    cmp " << node->lhs->name << ", " << (rhs->value ? "1" : "0") << "\n";
+            if(reversed)
+                os << "    " << X86_64GetJmpName(X86_64InvertCondition(node->conditionType)) << " " << getBlockLabel(node->falseTarget.lock()) << "\n";
+            else
+                os << "    " << X86_64GetJmpName(node->conditionType) << " " << getBlockLabel(node->trueTarget.lock()) << "\n";
+            if(!skipFinalJump)
+            {
+                if(reversed)
+                    os << "    jmp " << getBlockLabel(node->trueTarget.lock()) << "\n";
+                else
+                    os << "    jmp " << getBlockLabel(node->falseTarget.lock()) << "\n";
+            }
+            break;
+        }
+        }
     }
     virtual void visitX86_64AsmNodeMove(std::shared_ptr<X86_64AsmNodeMove> node) override
     {
@@ -76,20 +131,38 @@ public:
 private:
     void visitX86_64AsmBasicBlock(std::shared_ptr<X86_64AsmBasicBlock> block, bool writeAlign)
     {
-        if(writeAlign)
-            os << "    .align 16, 0x90\n";
-        writeBlockLabel(block);
-        for(std::shared_ptr<X86_64AsmNode> node : block->instructions)
+        currentBlock = block;
+        switch(phase)
         {
-            node->visit(*this);
-        }
-        if(block->controlTransferInstruction == nullptr) // final block
+        case Phase::CreateBlockJoinMap:
         {
-            os << "    mov rsp, rbp\n";
-            os << "    pop rbp\n";
-            os << "    ret\n";
+            if(block->controlTransferInstruction != nullptr)
+            {
+                block->controlTransferInstruction->visit(*this);
+            }
+            break;
         }
-        os << "\n";
+        case Phase::Write:
+        {
+            if(writeAlign && (!doBlockJoining || !blockJoinMap[block]))
+            {
+                os << "    .align 16, 0x90\n";
+            }
+            writeBlockLabel(block);
+            for(std::shared_ptr<X86_64AsmNode> node : block->instructions)
+            {
+                node->visit(*this);
+            }
+            if(block->controlTransferInstruction == nullptr) // final block
+            {
+                os << "    mov rsp, rbp\n";
+                os << "    pop rbp\n";
+                os << "    ret\n";
+            }
+            os << "\n";
+            break;
+        }
+        }
     }
     void visitX86_64AsmFunction(std::shared_ptr<X86_64AsmFunction> function)
     {
@@ -100,13 +173,36 @@ private:
         os << "main:\n";
         os << "    push rbp\n";
         os << "    mov rbp, rsp\n";
-        os << "    sub rsp, 0\n";
-        visitX86_64AsmBasicBlock(function->startBlock, false);
+        os << "    sub rsp, 0\n\n";
+        std::vector<std::shared_ptr<X86_64AsmBasicBlock>> blocks;
+        blocks.reserve(function->blocks.size());
+        blocks.push_back(function->startBlock);
         for(std::shared_ptr<X86_64AsmBasicBlock> block : function->blocks)
         {
+            blockJoinMap[block] = false;
             if(block == function->startBlock)
                 continue;
-            visitX86_64AsmBasicBlock(block, true);
+            blocks.push_back(block);
+        }
+        phase = Phase::CreateBlockJoinMap;
+        for(std::size_t i = 0; i < blocks.size(); i++)
+        {
+            std::shared_ptr<X86_64AsmBasicBlock> block = blocks[i];
+            if(i + 1 >= blocks.size())
+                nextBlock = nullptr;
+            else
+                nextBlock = blocks[i + 1];
+            visitX86_64AsmBasicBlock(block, block != function->startBlock);
+        }
+        phase = Phase::Write;
+        for(std::size_t i = 0; i < blocks.size(); i++)
+        {
+            std::shared_ptr<X86_64AsmBasicBlock> block = blocks[i];
+            if(i + 1 >= blocks.size())
+                nextBlock = nullptr;
+            else
+                nextBlock = blocks[i + 1];
+            visitX86_64AsmBasicBlock(block, block != function->startBlock);
         }
         os << "\n\n";
     }
