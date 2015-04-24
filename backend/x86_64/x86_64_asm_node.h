@@ -27,6 +27,10 @@
 #include "../../types/types.h"
 #include "../../values/values.h"
 #include <cassert>
+#include <sstream>
+#include <initializer_list>
+#include <vector>
+#include <cstdint>
 
 class X86_64AsmRegister final : public std::enable_shared_from_this<X86_64AsmRegister>
 {
@@ -41,9 +45,293 @@ public:
     };
     const RegisterType registerType;
     const std::string name;
-    X86_64AsmRegister(CompilerContext *context, RegisterType registerType, std::string name)
-        : context(context), registerType(registerType), name(name)
+    struct PhysicalRegisterKindMask final
     {
+        bool int8 : 1;
+        bool int16 : 1;
+        bool int32 : 1;
+        bool int64 : 1;
+        bool float32 : 1;
+        bool float64 : 1;
+        constexpr PhysicalRegisterKindMask(bool int8,
+                                            bool int16,
+                                            bool int32,
+                                            bool int64,
+                                            bool float32,
+                                            bool float64)
+            : int8(int8),
+              int16(int16),
+              int32(int32),
+              int64(int64),
+              float32(float32),
+              float64(float64)
+        {
+        }
+        constexpr PhysicalRegisterKindMask()
+            : int8(false),
+              int16(false),
+              int32(false),
+              int64(false),
+              float32(false),
+              float64(false)
+        {
+        }
+        static constexpr PhysicalRegisterKindMask None() {return PhysicalRegisterKindMask(false, false, false, false, false, false);}
+        static constexpr PhysicalRegisterKindMask All() {return PhysicalRegisterKindMask(true, true, true, true, true, true);}
+        static constexpr PhysicalRegisterKindMask Int8() {return PhysicalRegisterKindMask(true, false, false, false, false, false);}
+        static constexpr PhysicalRegisterKindMask Int16() {return PhysicalRegisterKindMask(false, true, false, false, false, false);}
+        static constexpr PhysicalRegisterKindMask Int32() {return PhysicalRegisterKindMask(false, false, true, false, false, false);}
+        static constexpr PhysicalRegisterKindMask Int64() {return PhysicalRegisterKindMask(false, false, false, true, false, false);}
+        static constexpr PhysicalRegisterKindMask Float32() {return PhysicalRegisterKindMask(false, false, false, false, true, false);}
+        static constexpr PhysicalRegisterKindMask Float64() {return PhysicalRegisterKindMask(false, false, false, false, false, true);}
+        constexpr PhysicalRegisterKindMask operator |(PhysicalRegisterKindMask rt) const
+        {
+            return PhysicalRegisterKindMask(int8 | rt.int8,
+                                            int16 | rt.int16,
+                                            int32 | rt.int32,
+                                            int64 | rt.int64,
+                                            float32 | rt.float32,
+                                            float64 | rt.float64);
+        }
+        constexpr PhysicalRegisterKindMask operator &(PhysicalRegisterKindMask rt) const
+        {
+            return PhysicalRegisterKindMask(int8 & rt.int8,
+                                            int16 & rt.int16,
+                                            int32 & rt.int32,
+                                            int64 & rt.int64,
+                                            float32 & rt.float32,
+                                            float64 & rt.float64);
+        }
+        explicit constexpr operator bool() const
+        {
+            return int8 | int16 | int32 | int64 | float32 | float64;
+        }
+        constexpr bool operator !() const
+        {
+            return !operator bool();
+        }
+        constexpr PhysicalRegisterKindMask operator ~() const
+        {
+            return PhysicalRegisterKindMask(~int8,
+                                            ~int16,
+                                            ~int32,
+                                            ~int64,
+                                            ~float32,
+                                            ~float64);
+        }
+        constexpr bool operator ==(PhysicalRegisterKindMask rt) const
+        {
+            return int8 == rt.int8 && int16 == rt.int16 && int32 == rt.int32 && int64 == rt.int64 && float32 == rt.float32 && float64 == rt.float64;
+        }
+        constexpr bool operator !=(PhysicalRegisterKindMask rt) const
+        {
+            return !operator ==(rt);
+        }
+    };
+    const PhysicalRegisterKindMask physicalRegisterKindMask;
+private:
+    std::vector<std::shared_ptr<X86_64AsmRegister>> interferenceSet;
+public:
+    const std::vector<std::shared_ptr<X86_64AsmRegister>> &getPhysicalRegisterInterferenceSet() const
+    {
+        return interferenceSet;
+    }
+    const bool isSpecialPurpose; /// if this register should not be picked by the register allocator
+private:
+    struct constructTag final
+    {
+    };
+public:
+    X86_64AsmRegister(CompilerContext *context, RegisterType registerType, std::string name, PhysicalRegisterKindMask physicalRegisterKindMask, bool isSpecialPurpose, constructTag)
+        : context(context), registerType(registerType), name(name), physicalRegisterKindMask(physicalRegisterKindMask), isSpecialPurpose(isSpecialPurpose)
+    {
+    }
+private:
+    typedef std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>> VirtualRegisterMapType;
+    static VirtualRegisterMapType &getVirtualRegisterMap(CompilerContext *context)
+    {
+        std::shared_ptr<VirtualRegisterMapType> retval = context->getValue<VirtualRegisterMapType>();
+        if(retval == nullptr)
+            context->setValue<VirtualRegisterMapType>(retval = std::make_shared<VirtualRegisterMapType>());
+        return *retval;
+    }
+    typedef std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>> PhysicalRegisterMapType;
+    static PhysicalRegisterMapType &getPhysicalRegisterMap(CompilerContext *context)
+    {
+        std::shared_ptr<PhysicalRegisterMapType> retval = context->getValue<PhysicalRegisterMapType>();
+        if(retval == nullptr)
+            context->setValue<PhysicalRegisterMapType>(retval = std::make_shared<PhysicalRegisterMapType>());
+        return *retval;
+    }
+public:
+    static std::shared_ptr<X86_64AsmRegister> getVirtualRegister(CompilerContext *context, std::string name, PhysicalRegisterKindMask physicalRegisterKindMask)
+    {
+        std::shared_ptr<X86_64AsmRegister> &retval = getVirtualRegisterMap(context)[name];
+        if(retval == nullptr)
+            retval = std::make_shared<X86_64AsmRegister>(context, RegisterType::Virtual, name, physicalRegisterKindMask, false, constructTag());
+        return retval;
+    }
+private:
+    static std::shared_ptr<X86_64AsmRegister> makePhysicalRegister(CompilerContext *context, std::string name, PhysicalRegisterKindMask physicalRegisterKindMask, bool isSpecialPurpose)
+    {
+        std::shared_ptr<X86_64AsmRegister> &retval = getPhysicalRegisterMap(context)[name];
+        if(retval == nullptr)
+            retval = std::make_shared<X86_64AsmRegister>(context, RegisterType::Physical, name, physicalRegisterKindMask, isSpecialPurpose, constructTag());
+        return retval;
+    }
+    static void constructAndAddIntegerPhysicalRegisters(CompilerContext *context, std::shared_ptr<std::vector<std::shared_ptr<X86_64AsmRegister>>> retval, std::string name64, std::string name32, std::string name16, std::string name8, bool isSpecialPurpose)
+    {
+        std::shared_ptr<X86_64AsmRegister> r64 = makePhysicalRegister(context, name64, PhysicalRegisterKindMask::Int64(), isSpecialPurpose);
+        std::shared_ptr<X86_64AsmRegister> r32 = makePhysicalRegister(context, name32, PhysicalRegisterKindMask::Int32(), isSpecialPurpose);
+        std::shared_ptr<X86_64AsmRegister> r16 = makePhysicalRegister(context, name16, PhysicalRegisterKindMask::Int16(), isSpecialPurpose);
+        std::shared_ptr<X86_64AsmRegister> r8 = makePhysicalRegister(context, name8, PhysicalRegisterKindMask::Int8(), isSpecialPurpose);
+
+        r64->interferenceSet.push_back(r32);
+        r64->interferenceSet.push_back(r16);
+        r64->interferenceSet.push_back(r8);
+
+        r32->interferenceSet.push_back(r64);
+        r32->interferenceSet.push_back(r16);
+        r32->interferenceSet.push_back(r8);
+
+        r16->interferenceSet.push_back(r64);
+        r16->interferenceSet.push_back(r32);
+        r16->interferenceSet.push_back(r8);
+
+        r8->interferenceSet.push_back(r64);
+        r8->interferenceSet.push_back(r32);
+        r8->interferenceSet.push_back(r16);
+
+        retval->push_back(r64);
+        retval->push_back(r32);
+        retval->push_back(r16);
+        retval->push_back(r8);
+    }
+public:
+    static const std::vector<std::shared_ptr<X86_64AsmRegister>> &getPhysicalRegisters(CompilerContext *context)
+    {
+        auto retval = context->getValue<std::vector<std::shared_ptr<X86_64AsmRegister>>>();
+        if(retval == nullptr)
+        {
+            retval = std::make_shared<std::vector<std::shared_ptr<X86_64AsmRegister>>>();
+            for(char nameMiddle : {'a', 'b', 'c', 'd'}) // we don't use ah through dh becuase they can't be used in all instructions because they conflict with the REX (64-bit override) prefix
+            {
+                constructAndAddIntegerPhysicalRegisters(context,
+                                                        retval,
+                                                        std::string("r") + nameMiddle + "x",
+                                                        std::string("e") + nameMiddle + "x",
+                                                        nameMiddle + std::string("x"),
+                                                        nameMiddle + std::string("l"),
+                                                        false);
+            }
+            for(std::string baseName : {"si", "di"})
+            {
+                constructAndAddIntegerPhysicalRegisters(context,
+                                                        retval,
+                                                        "r" + baseName,
+                                                        "e" + baseName,
+                                                        baseName,
+                                                        baseName + "l",
+                                                        false);
+            }
+            for(std::string baseName : {"sp", "bp"})
+            {
+                constructAndAddIntegerPhysicalRegisters(context,
+                                                        retval,
+                                                        "r" + baseName,
+                                                        "e" + baseName,
+                                                        baseName,
+                                                        baseName + "l",
+                                                        true);
+            }
+            for(int i = 8; i < 16; i++)
+            {
+                std::ostringstream ss;
+                ss << "r" << i;
+                std::string baseName = ss.str();
+                constructAndAddIntegerPhysicalRegisters(context,
+                                                        retval,
+                                                        baseName,
+                                                        baseName + "d",
+                                                        baseName + "w",
+                                                        baseName + "b",
+                                                        false);
+            }
+            for(int i = 0; i < 16; i++)
+            {
+                std::ostringstream ss;
+                ss << "xmm" << i;
+                std::string name = ss.str();
+                retval->push_back(makePhysicalRegister(context, name, PhysicalRegisterKindMask::Float64() | PhysicalRegisterKindMask::Float32(), false));
+            }
+        }
+        return *retval;
+    }
+};
+
+class X86_64TypeToPhysicalRegisterKindMask final : public TypeVisitor
+{
+    X86_64TypeToPhysicalRegisterKindMask(const X86_64TypeToPhysicalRegisterKindMask &) = delete;
+    X86_64TypeToPhysicalRegisterKindMask &operator =(const X86_64TypeToPhysicalRegisterKindMask &) = delete;
+private:
+    bool isGood = true, isEmpty = true;
+    bool isFloatingPoint = false;
+    std::size_t sizeInBytes = 0;
+    X86_64TypeToPhysicalRegisterKindMask()
+    {
+    }
+    X86_64AsmRegister::PhysicalRegisterKindMask getMask() const
+    {
+        if(isEmpty || !isGood)
+            return X86_64AsmRegister::PhysicalRegisterKindMask::None();
+        switch(sizeInBytes)
+        {
+        case 1:
+            if(isFloatingPoint)
+                break;
+            return X86_64AsmRegister::PhysicalRegisterKindMask::Int8();
+        case 2:
+            if(isFloatingPoint)
+                break;
+            return X86_64AsmRegister::PhysicalRegisterKindMask::Int16();
+        case 4:
+            if(isFloatingPoint)
+                return X86_64AsmRegister::PhysicalRegisterKindMask::Float32();
+            return X86_64AsmRegister::PhysicalRegisterKindMask::Int32();
+        case 8:
+            if(isFloatingPoint)
+                return X86_64AsmRegister::PhysicalRegisterKindMask::Float64();
+            return X86_64AsmRegister::PhysicalRegisterKindMask::Int64();
+        }
+        return X86_64AsmRegister::PhysicalRegisterKindMask::None();
+    }
+    X86_64TypeToPhysicalRegisterKindMask &visit(std::shared_ptr<TypeNode> node)
+    {
+        node->visit(*this);
+        return *this;
+    }
+public:
+    virtual void visitTypeConstant(std::shared_ptr<TypeConstant> node) override
+    {
+        visit(node->toNonConstant());
+    }
+    virtual void visitTypeVolatile(std::shared_ptr<TypeVolatile> node) override
+    {
+        visit(node->toNonVolatile());
+    }
+    virtual void visitTypeVoid(std::shared_ptr<TypeVoid> node) override
+    {
+        isGood = false;
+    }
+    virtual void visitTypeBoolean(std::shared_ptr<TypeBoolean> node) override
+    {
+        isGood = isGood && isEmpty;
+        isEmpty = false;
+        sizeInBytes += 1;
+    }
+    static X86_64AsmRegister::PhysicalRegisterKindMask run(std::shared_ptr<TypeNode> type)
+    {
+        return X86_64TypeToPhysicalRegisterKindMask().visit(type).getMask();
     }
 };
 

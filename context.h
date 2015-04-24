@@ -21,6 +21,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <atomic>
 
 class TypeNode;
 
@@ -30,11 +31,33 @@ public:
     std::unordered_multimap<std::size_t, std::shared_ptr<TypeNode>> types;
 private:
     std::shared_ptr<TypeNode> constructTypeNodeHelper(std::shared_ptr<TypeNode> retval);
+    static std::size_t makeValueIndex()
+    {
+        static std::atomic_size_t retval(0);
+        return retval++;
+    }
+    std::unordered_map<std::size_t, std::shared_ptr<void>> values;
+    template <typename T>
+    static std::size_t getValueIndex()
+    {
+        static std::size_t retval = makeValueIndex();
+        return retval;
+    }
 public:
     template <typename T, typename ...Args>
     std::shared_ptr<T> constructTypeNode(Args &&...args)
     {
         return std::static_pointer_cast<T>(constructTypeNodeHelper(std::shared_ptr<T>(new T(this, std::forward<Args>(args)...))));
+    }
+    template <typename T>
+    void setValue(std::shared_ptr<T> value)
+    {
+        values[getValueIndex<T>()] = std::static_pointer_cast<void>(value);
+    }
+    template <typename T>
+    std::shared_ptr<T> getValue()
+    {
+        return std::static_pointer_cast<T>(values[getValueIndex<T>()]);
     }
 };
 

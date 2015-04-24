@@ -39,6 +39,7 @@
 		<Unit filename="backend/x86_64/x86_64_asm_writer.h" />
 		<Unit filename="backend/x86_64/x86_64_backend.cpp" />
 		<Unit filename="backend/x86_64/x86_64_backend.h" />
+		<Unit filename="backend/x86_64/x86_64_register_allocator.h" />
 		<Unit filename="backend/x86_64/x86_64_rtl_to_asm.h" />
 		<Unit filename="construct_basic_block_graph.h" />
 		<Unit filename="construct_liveness_info.h" />
