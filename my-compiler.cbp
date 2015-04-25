@@ -13,6 +13,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-g" />
+					<Add option="-Wold-style-cast" />
 				</Compiler>
 			</Target>
 			<Target title="Release">
@@ -69,6 +70,7 @@
 		<Unit filename="types/type_builtin.cpp" />
 		<Unit filename="types/type_builtin.h" />
 		<Unit filename="types/types.h" />
+		<Unit filename="util/random_access_list.h" />
 		<Unit filename="values/value.h" />
 		<Unit filename="values/values.h" />
 		<Extensions>

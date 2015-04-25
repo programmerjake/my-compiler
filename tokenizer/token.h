@@ -89,7 +89,7 @@ private:
             return retval;
         }
         if(dumpCode)
-            std::cout << (char)is.peek() << std::flush;
+            std::cout << static_cast<char>(is.peek()) << std::flush;
         return is.get();
     }
     void putBack(int ch)
@@ -197,7 +197,7 @@ public:
             tokenType = TokenType::Identifier;
             while(std::isalnum(peek()) || peek() == '_')
             {
-                tokenValue += (char)get();
+                tokenValue += static_cast<char>(get());
             }
             for(char ch : tokenValue)
             {

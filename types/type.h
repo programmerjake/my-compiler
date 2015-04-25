@@ -148,7 +148,7 @@ public:
     }
     virtual std::size_t getHash() const override
     {
-        return (std::size_t)0x7321489 + node->getHash();
+        return static_cast<std::size_t>(0x7321489) + node->getHash();
     }
     virtual void visit(TypeVisitor &visitor) override
     {
@@ -199,7 +199,7 @@ public:
     }
     virtual std::size_t getHash() const override
     {
-        return (std::size_t)0x71892437 + node->getHash();
+        return static_cast<std::size_t>(0x71892437) + node->getHash();
     }
     virtual std::shared_ptr<ValueNode> makeDefaultValue() override
     {

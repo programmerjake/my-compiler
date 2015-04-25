@@ -22,9 +22,48 @@
 #include "x86_64_asm_nodes.h"
 #include <unordered_set>
 #include <unordered_map>
+#include <list>
 
 class X86_64RegisterAllocator final
 {
+private:
+    class LiveRange final
+    {
+    public:
+        class InstructionRange final
+        {
+            std::shared_ptr<X86_64AsmBasicBlock> block;
+            typedef typename X86_64AsmBasicBlock::InstructionList::iterator InstructionIterator;
+            InstructionIterator startIterator; // starts between *startIterator and *std::prev(startIterator)
+            InstructionIterator endIterator;
+            InstructionRange()
+                : block(nullptr)
+            {
+            }
+            InstructionRange(std::shared_ptr<X86_64AsmBasicBlock> block, InstructionIterator startIterator, InstructionIterator endIterator)
+                : block(block), startIterator(startIterator), endIterator(endIterator)
+            {
+            }
+            bool empty() const
+            {
+                return block == nullptr;
+            }
+            bool operator ==(const InstructionRange &rt) const
+            {
+                return block == rt.block && (block == nullptr || (startIterator == rt.startIterator && endIterator == rt.endIterator));
+            }
+            bool operator !=(const InstructionRange &rt) const
+            {
+                return !operator ==(rt);
+            }
+            friend InstructionRange intersect(const InstructionRange &l)
+        };
+        std::unordered_map<std::shared_ptr<X86_64AsmBasicBlock>, InstructionRange> ranges;
+        friend bool operator ==(const LiveRange &l, const LiveRange &r)
+        {
+
+        }
+    };
 public:
     void visitX86_64AsmFunction(std::shared_ptr<X86_64AsmFunction> function)
     {

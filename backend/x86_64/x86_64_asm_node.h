@@ -386,7 +386,8 @@ public:
     {
     }
     std::shared_ptr<X86_64AsmControlTransfer> controlTransferInstruction;
-    std::list<std::shared_ptr<X86_64AsmNode>> instructions;
+    typedef std::list<std::shared_ptr<X86_64AsmNode>> InstructionList;
+    InstructionList instructions;
     std::list<std::weak_ptr<X86_64AsmBasicBlock>> sourceBlocks;
     std::list<std::weak_ptr<X86_64AsmBasicBlock>> destBlocks;
     std::unordered_set<std::shared_ptr<X86_64AsmRegister>> usedRegistersAtStart;
