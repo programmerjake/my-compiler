@@ -29,6 +29,7 @@ class TypeConstant;
 class TypeVolatile;
 class TypeVoid;
 class TypeBoolean;
+class TypePointer;
 class ValueNode;
 
 class TypeVisitor
@@ -39,6 +40,7 @@ public:
     virtual void visitTypeVolatile(std::shared_ptr<TypeVolatile> node) = 0;
     virtual void visitTypeVoid(std::shared_ptr<TypeVoid> node) = 0;
     virtual void visitTypeBoolean(std::shared_ptr<TypeBoolean> node) = 0;
+    virtual void visitTypePointer(std::shared_ptr<TypePointer> node) = 0;
 };
 
 #include "../context.h"
@@ -98,6 +100,10 @@ public:
     }
     virtual std::size_t getHash() const = 0;
     virtual std::shared_ptr<ValueNode> makeDefaultValue() = 0;
+    virtual std::shared_ptr<TypeNode> dereference()
+    {
+        return nullptr;
+    }
 };
 
 class TypeBuiltIn : public TypeNode

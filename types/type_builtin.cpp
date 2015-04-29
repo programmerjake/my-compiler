@@ -23,3 +23,8 @@ std::shared_ptr<ValueNode> TypeBoolean::makeDefaultValue()
 {
     return std::make_shared<ValueBoolean>(context, false);
 }
+
+std::shared_ptr<ValueNode> TypePointer::makeDefaultValue()
+{
+    return std::make_shared<ValueNullPointer>(context);
+}

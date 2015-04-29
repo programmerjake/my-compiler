@@ -58,6 +58,7 @@ private:
     };
     Phase phase = Phase::CreateBlockJoinMap;
     std::shared_ptr<X86_64AsmBasicBlock> currentBlock, nextBlock;
+    std::uint64_t alignedLocalsSize = 0;
 public:
     virtual void visitX86_64AsmNodeJump(std::shared_ptr<X86_64AsmNodeJump> node) override
     {
@@ -123,10 +124,24 @@ public:
     }
     virtual void visitX86_64AsmNodeLoadConstant(std::shared_ptr<X86_64AsmNodeLoadConstant> node) override
     {
-        std::shared_ptr<ValueBoolean> value = std::dynamic_pointer_cast<ValueBoolean>(node->value);
-        if(value == nullptr)
+        if(std::shared_ptr<ValueBoolean> valueBoolean = std::dynamic_pointer_cast<ValueBoolean>(node->value))
+            os << "    mov " << node->dest->name << ", " << (valueBoolean->value ? "1" : "0") << "\n";
+        else if(std::shared_ptr<ValueLocalVariablePointer> valueLocalVariablePointer = std::dynamic_pointer_cast<ValueLocalVariablePointer>(node->value))
+        {
+            os << "    mov " << node->dest->name << ", rbp - " << (alignedLocalsSize - valueLocalVariablePointer->start) << "\n";
+        }
+        else if(std::shared_ptr<ValueNullPointer> valueNullPointer = std::dynamic_pointer_cast<ValueNullPointer>(node->value))
+            os << "    mov " << node->dest->name << ", 0\n";
+        else
             throw NotImplementedException("type not implemented");
-        os << "    mov " << node->dest->name << ", " << (value->value ? "1" : "0") << "\n";
+    }
+    virtual void visitX86_64AsmNodeLoad(std::shared_ptr<X86_64AsmNodeLoad> node) override
+    {
+        os << "    mov " << node->dest->name << ", [" << node->address->name << "]\n";
+    }
+    virtual void visitX86_64AsmNodeStore(std::shared_ptr<X86_64AsmNodeStore> node) override
+    {
+        os << "    mov [" << node->address->name << "], " << node->value->name << "\n";
     }
 private:
     void visitX86_64AsmBasicBlock(std::shared_ptr<X86_64AsmBasicBlock> block, bool writeAlign)
@@ -173,7 +188,11 @@ private:
         os << "main:\n";
         os << "    push rbp\n";
         os << "    mov rbp, rsp\n";
-        os << "    sub rsp, 0\n\n";
+        const std::uint64_t stackAlign = 16;
+        alignedLocalsSize = ((function->localVariablesSize + (stackAlign - 1)) / stackAlign) * stackAlign;
+        if(alignedLocalsSize != 0)
+            os << "    sub rsp, " << alignedLocalsSize << "\n";
+        os << "\n";
         std::vector<std::shared_ptr<X86_64AsmBasicBlock>> blocks;
         blocks.reserve(function->blocks.size());
         blocks.push_back(function->startBlock);

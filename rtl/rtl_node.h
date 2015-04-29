@@ -94,10 +94,13 @@ public:
     }
     std::list<std::shared_ptr<RTLBasicBlock>> blocks;
     std::shared_ptr<RTLBasicBlock> startBlock;
+    std::uint64_t localVariablesSize = 0;
 };
 
 class RTLLoadConstant;
 class RTLMove;
+class RTLLoad;
+class RTLStore;
 class RTLUnconditionalJump;
 class RTLConditionalJump;
 
@@ -107,6 +110,8 @@ public:
     virtual void visitRTLLoadConstant(std::shared_ptr<RTLLoadConstant> node) = 0;
     virtual void visitRTLMove(std::shared_ptr<RTLMove> node) = 0;
     virtual void visitRTLUnconditionalJump(std::shared_ptr<RTLUnconditionalJump> node) = 0;
+    virtual void visitRTLLoad(std::shared_ptr<RTLLoad> node) = 0;
+    virtual void visitRTLStore(std::shared_ptr<RTLStore> node) = 0;
     virtual void visitRTLConditionalJump(std::shared_ptr<RTLConditionalJump> node) = 0;
 };
 
@@ -216,6 +221,58 @@ public:
     virtual void visit(RTLNodeVisitor &visitor) override
     {
         visitor.visitRTLMove(std::static_pointer_cast<RTLMove>(shared_from_this()));
+    }
+};
+
+class RTLLoad final : public RTLNode
+{
+public:
+    std::shared_ptr<RTLRegister> destRegister;
+    std::shared_ptr<RTLRegister> addressRegister;
+    std::shared_ptr<TypeNode> addressType;
+    RTLLoad(std::shared_ptr<RTLRegister> destRegister, std::shared_ptr<RTLRegister> addressRegister, std::shared_ptr<TypeNode> addressType)
+        : RTLNode(addressType->context), destRegister(destRegister), addressRegister(addressRegister), addressType(addressType)
+    {
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getOutputRegisters() const override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>>{std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>{destRegister, addressType->dereference()}};
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getInputRegisters() const override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>>{std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>{addressRegister, addressType}};
+    }
+    virtual void visit(RTLNodeVisitor &visitor) override
+    {
+        visitor.visitRTLLoad(std::static_pointer_cast<RTLLoad>(shared_from_this()));
+    }
+};
+
+class RTLStore final : public RTLNode
+{
+public:
+    std::shared_ptr<RTLRegister> addressRegister;
+    std::shared_ptr<RTLRegister> valueRegister;
+    std::shared_ptr<TypeNode> addressType;
+    RTLStore(std::shared_ptr<RTLRegister> addressRegister, std::shared_ptr<RTLRegister> valueRegister, std::shared_ptr<TypeNode> addressType)
+        : RTLNode(addressType->context), addressRegister(addressRegister), valueRegister(valueRegister), addressType(addressType)
+    {
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getOutputRegisters() const override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>>{};
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getInputRegisters() const override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>>{std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>{addressRegister, addressType}, std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>{valueRegister, addressType->dereference()}};
+    }
+    virtual void visit(RTLNodeVisitor &visitor) override
+    {
+        visitor.visitRTLStore(std::static_pointer_cast<RTLStore>(shared_from_this()));
+    }
+    virtual bool hasSideEffects() const override
+    {
+        return true;
     }
 };
 

@@ -329,6 +329,12 @@ public:
         isEmpty = false;
         sizeInBytes += 1;
     }
+    virtual void visitTypePointer(std::shared_ptr<TypePointer> node) override
+    {
+        isGood = isGood && isEmpty;
+        isEmpty = false;
+        sizeInBytes += 8;
+    }
     static X86_64AsmRegister::PhysicalRegisterKindMask run(std::shared_ptr<TypeNode> type)
     {
         return X86_64TypeToPhysicalRegisterKindMask().visit(type).getMask();
@@ -386,7 +392,7 @@ public:
     {
     }
     std::shared_ptr<X86_64AsmControlTransfer> controlTransferInstruction;
-    typedef std::list<std::shared_ptr<X86_64AsmNode>> InstructionList;
+    typedef std::vector<std::shared_ptr<X86_64AsmNode>> InstructionList;
     InstructionList instructions;
     std::list<std::weak_ptr<X86_64AsmBasicBlock>> sourceBlocks;
     std::list<std::weak_ptr<X86_64AsmBasicBlock>> destBlocks;
@@ -408,12 +414,15 @@ public:
     }
     std::shared_ptr<X86_64AsmBasicBlock> startBlock;
     std::list<std::shared_ptr<X86_64AsmBasicBlock>> blocks;
+    std::uint64_t localVariablesSize = 0;
 };
 
 class X86_64AsmNodeJump;
 class X86_64AsmNodeCompareAgainstConstantAndJump;
 class X86_64AsmNodeMove;
 class X86_64AsmNodeLoadConstant;
+class X86_64AsmNodeLoad;
+class X86_64AsmNodeStore;
 
 class X86_64AsmNodeVisitor
 {
@@ -422,6 +431,8 @@ public:
     virtual void visitX86_64AsmNodeCompareAgainstConstantAndJump(std::shared_ptr<X86_64AsmNodeCompareAgainstConstantAndJump> node) = 0;
     virtual void visitX86_64AsmNodeMove(std::shared_ptr<X86_64AsmNodeMove> node) = 0;
     virtual void visitX86_64AsmNodeLoadConstant(std::shared_ptr<X86_64AsmNodeLoadConstant> node) = 0;
+    virtual void visitX86_64AsmNodeLoad(std::shared_ptr<X86_64AsmNodeLoad> node) = 0;
+    virtual void visitX86_64AsmNodeStore(std::shared_ptr<X86_64AsmNodeStore> node) = 0;
 };
 
 class X86_64AsmNodeJump final : public X86_64AsmControlTransfer
@@ -608,6 +619,56 @@ public:
     virtual void visit(X86_64AsmNodeVisitor &visitor) override
     {
         visitor.visitX86_64AsmNodeMove(std::static_pointer_cast<X86_64AsmNodeMove>(shared_from_this()));
+    }
+};
+
+class X86_64AsmNodeLoad final : public X86_64AsmNode
+{
+public:
+    std::shared_ptr<X86_64AsmRegister> dest;
+    std::shared_ptr<X86_64AsmRegister> address;
+    explicit X86_64AsmNodeLoad(std::shared_ptr<X86_64AsmRegister> dest, std::shared_ptr<X86_64AsmRegister> address)
+        : X86_64AsmNode(dest->context), dest(dest), address(address)
+    {
+    }
+    virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> inputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86_64AsmRegister>>{address};
+    }
+    virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> outputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86_64AsmRegister>>{dest};
+    }
+    virtual void visit(X86_64AsmNodeVisitor &visitor) override
+    {
+        visitor.visitX86_64AsmNodeLoad(std::static_pointer_cast<X86_64AsmNodeLoad>(shared_from_this()));
+    }
+};
+
+class X86_64AsmNodeStore final : public X86_64AsmNode
+{
+public:
+    std::shared_ptr<X86_64AsmRegister> address;
+    std::shared_ptr<X86_64AsmRegister> value;
+    explicit X86_64AsmNodeStore(std::shared_ptr<X86_64AsmRegister> address, std::shared_ptr<X86_64AsmRegister> value)
+        : X86_64AsmNode(address->context), address(address), value(value)
+    {
+    }
+    virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> inputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86_64AsmRegister>>{address, value};
+    }
+    virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> outputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86_64AsmRegister>>{};
+    }
+    virtual void visit(X86_64AsmNodeVisitor &visitor) override
+    {
+        visitor.visitX86_64AsmNodeStore(std::static_pointer_cast<X86_64AsmNodeStore>(shared_from_this()));
+    }
+    virtual bool hasSideEffects() const override
+    {
+        return true;
     }
 };
 

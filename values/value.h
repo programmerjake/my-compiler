@@ -26,12 +26,16 @@
 class ValueNode;
 class ValueBoolean;
 class ValueUnknown;
+class ValueLocalVariablePointer;
+class ValueNullPointer;
 class ValueNodeVisitor
 {
 public:
     virtual ~ValueNodeVisitor() = default;
     virtual void visitValueBoolean(std::shared_ptr<ValueBoolean> node) = 0;
     virtual void visitValueUnknown(std::shared_ptr<ValueUnknown> node) = 0;
+    virtual void visitValueLocalVariablePointer(std::shared_ptr<ValueLocalVariablePointer> node) = 0;
+    virtual void visitValueNullPointer(std::shared_ptr<ValueNullPointer> node) = 0;
 };
 
 class ValueNode : public std::enable_shared_from_this<ValueNode>
@@ -39,9 +43,10 @@ class ValueNode : public std::enable_shared_from_this<ValueNode>
 public:
     virtual ~ValueNode() = default;
     CompilerContext *const context;
+    const bool isConstant;
     std::shared_ptr<TypeNode> type;
-    ValueNode(CompilerContext *context, std::shared_ptr<TypeNode> type)
-        : context(context), type(type)
+    ValueNode(CompilerContext *context, std::shared_ptr<TypeNode> type, bool isConstant)
+        : context(context), isConstant(isConstant), type(type)
     {
     }
     virtual void visit(ValueNodeVisitor &visitor) = 0;
@@ -57,7 +62,7 @@ class ValueBoolean final : public ValueNode
 public:
     bool value;
     ValueBoolean(CompilerContext *context, bool value)
-        : ValueNode(context, TypeBoolean::make(context)), value(value)
+        : ValueNode(context, TypeBoolean::make(context), true), value(value)
     {
     }
     virtual void visit(ValueNodeVisitor &visitor) override
@@ -76,8 +81,8 @@ public:
 class ValueUnknown final : public ValueNode
 {
 public:
-    ValueUnknown(CompilerContext *context)
-        : ValueNode(context, TypeVoid::make(context))
+    explicit ValueUnknown(CompilerContext *context)
+        : ValueNode(context, TypeVoid::make(context), false)
     {
     }
     virtual void visit(ValueNodeVisitor &visitor) override
@@ -90,6 +95,47 @@ public:
         if(prt == nullptr)
             return false;
         return true;
+    }
+};
+
+class ValueNullPointer final : public ValueNode
+{
+public:
+    explicit ValueNullPointer(CompilerContext *context)
+        : ValueNode(context, TypePointer::make(TypeVoid::make(context)), true)
+    {
+    }
+    virtual void visit(ValueNodeVisitor &visitor) override
+    {
+        visitor.visitValueNullPointer(std::static_pointer_cast<ValueNullPointer>(shared_from_this()));
+    }
+    virtual bool operator ==(const ValueNode &rt) const override
+    {
+        const ValueNullPointer *prt = dynamic_cast<const ValueNullPointer *>(&rt);
+        if(prt == nullptr)
+            return false;
+        return true;
+    }
+};
+
+class ValueLocalVariablePointer final : public ValueNode
+{
+public:
+    std::uint64_t start; /// byte count into local variables if positive, parameters if negative
+    explicit ValueLocalVariablePointer(CompilerContext *context, std::uint64_t start)
+        : ValueNode(context, TypePointer::make(TypeVoid::make(context)), false), start(start)
+    {
+    }
+    virtual void visit(ValueNodeVisitor &visitor) override
+    {
+        visitor.visitValueLocalVariablePointer(std::static_pointer_cast<ValueLocalVariablePointer>(shared_from_this()));
+    }
+    virtual bool operator ==(const ValueNode &rt) const override
+    {
+        const ValueLocalVariablePointer *prt = dynamic_cast<const ValueLocalVariablePointer *>(&rt);
+        if(prt == nullptr)
+            return false;
+        return start == prt->start;
     }
 };
 

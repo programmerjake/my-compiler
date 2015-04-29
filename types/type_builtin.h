@@ -78,4 +78,44 @@ public:
     virtual std::shared_ptr<ValueNode> makeDefaultValue() override;
 };
 
+class TypePointer final : public TypeNode
+{
+    friend class CompilerContext;
+private:
+    std::shared_ptr<TypeNode> node;
+    TypePointer(CompilerContext *context, std::shared_ptr<TypeNode> node)
+        : TypeNode(context, false, false), node(node)
+    {
+    }
+public:
+    static std::shared_ptr<TypeNode> make(std::shared_ptr<TypeNode> node)
+    {
+        if(node == nullptr)
+            return nullptr;
+        return node->context->constructTypeNode<TypePointer>(node);
+    }
+    virtual std::shared_ptr<TypeNode> dereference() override
+    {
+        return node;
+    }
+    virtual void visit(TypeVisitor &visitor) override
+    {
+        visitor.visitTypePointer(std::static_pointer_cast<TypePointer>(shared_from_this()));
+    }
+    virtual bool operator ==(const TypeNode &rt) const override
+    {
+        const TypePointer *prt = dynamic_cast<const TypePointer *>(&rt);
+        if(prt != nullptr)
+        {
+            return *node == *prt->node;
+        }
+        return false;
+    }
+    virtual std::size_t getHash() const override
+    {
+        return static_cast<std::size_t>(0x24395729) + node->getHash();
+    }
+    virtual std::shared_ptr<ValueNode> makeDefaultValue() override;
+};
+
 #endif // TYPE_BUILTIN_H_INCLUDED

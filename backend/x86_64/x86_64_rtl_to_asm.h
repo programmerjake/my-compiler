@@ -148,6 +148,7 @@ private:
     std::shared_ptr<X86_64AsmFunction> visitRTLFunction(std::shared_ptr<RTLFunction> function)
     {
         currentFunction = getOrMakeFunction(function);
+        currentFunction->localVariablesSize = function->localVariablesSize;
         currentFunction->startBlock = getOrMakeBlock(function->startBlock);
         for(std::shared_ptr<RTLBasicBlock> block : function->blocks)
         {
@@ -170,6 +171,16 @@ public:
     virtual void visitRTLMove(std::shared_ptr<RTLMove> node) override
     {
         std::shared_ptr<X86_64AsmNode> newNode = std::make_shared<X86_64AsmNodeMove>(getOrMakeRegister(node->destRegister, node->type), getOrMakeRegister(node->sourceRegister, node->type));
+        currentBlock->instructions.push_back(newNode);
+    }
+    virtual void visitRTLLoad(std::shared_ptr<RTLLoad> node) override
+    {
+        std::shared_ptr<X86_64AsmNode> newNode = std::make_shared<X86_64AsmNodeLoad>(getOrMakeRegister(node->destRegister, node->addressType->dereference()), getOrMakeRegister(node->addressRegister, node->addressType));
+        currentBlock->instructions.push_back(newNode);
+    }
+    virtual void visitRTLStore(std::shared_ptr<RTLStore> node) override
+    {
+        std::shared_ptr<X86_64AsmNode> newNode = std::make_shared<X86_64AsmNodeStore>(getOrMakeRegister(node->addressRegister, node->addressType), getOrMakeRegister(node->valueRegister, node->addressType->dereference()));
         currentBlock->instructions.push_back(newNode);
     }
     virtual void visitRTLUnconditionalJump(std::shared_ptr<RTLUnconditionalJump> node) override

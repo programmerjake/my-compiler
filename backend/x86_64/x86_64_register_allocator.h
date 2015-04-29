@@ -56,7 +56,12 @@ private:
             {
                 return !operator ==(rt);
             }
-            friend InstructionRange intersect(const InstructionRange &l)
+            friend InstructionRange intersect(const InstructionRange &l, const InstructionRange &r)
+            {
+                if(l.block != r.block)
+                    return InstructionRange();
+
+            }
         };
         std::unordered_map<std::shared_ptr<X86_64AsmBasicBlock>, InstructionRange> ranges;
         friend bool operator ==(const LiveRange &l, const LiveRange &r)

@@ -26,7 +26,7 @@ class SSAMove final : public SSANode
 {
 public:
     std::weak_ptr<SSANode> source;
-    SSAMove(std::shared_ptr<SSANode> source)
+    explicit SSAMove(std::shared_ptr<SSANode> source)
         : SSANode(source->context, source->type), source(source)
     {
     }
@@ -48,6 +48,64 @@ public:
     virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
     {
         source = replaceNode(replacements, source.lock());
+    }
+};
+
+class SSALoad final : public SSANode
+{
+public:
+    std::weak_ptr<SSANode> address;
+    explicit SSALoad(std::shared_ptr<SSANode> address)
+        : SSANode(address->context, address->type->dereference()), address(address)
+    {
+    }
+    virtual void visit(SSANodeVisitor &visitor) override
+    {
+        visitor.visitSSALoad(std::static_pointer_cast<SSALoad>(shared_from_this()));
+    }
+    virtual std::shared_ptr<ValueNode> evaluateForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const override
+    {
+        return nullptr;
+    }
+    virtual std::list<std::shared_ptr<SSANode>> getInputs() const override
+    {
+        return std::list<std::shared_ptr<SSANode>>{address.lock()};
+    }
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
+    {
+        address = replaceNode(replacements, address.lock());
+    }
+};
+
+class SSAStore final : public SSANode
+{
+public:
+    std::weak_ptr<SSANode> address;
+    std::weak_ptr<SSANode> value;
+    SSAStore(std::shared_ptr<SSANode> address, std::shared_ptr<SSANode> value)
+        : SSANode(address->context, TypeVoid::make(address->context)), address(address), value(value)
+    {
+    }
+    virtual void visit(SSANodeVisitor &visitor) override
+    {
+        visitor.visitSSAStore(std::static_pointer_cast<SSAStore>(shared_from_this()));
+    }
+    virtual std::shared_ptr<ValueNode> evaluateForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const override
+    {
+        return nullptr;
+    }
+    virtual std::list<std::shared_ptr<SSANode>> getInputs() const override
+    {
+        return std::list<std::shared_ptr<SSANode>>{address.lock()};
+    }
+    virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
+    {
+        address = replaceNode(replacements, address.lock());
+        value = replaceNode(replacements, value.lock());
+    }
+    virtual bool hasSideEffects() const override
+    {
+        return true;
     }
 };
 
