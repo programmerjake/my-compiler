@@ -28,51 +28,178 @@
 					<Add option="-s" />
 				</Linker>
 			</Target>
+			<Target title="RandomAccessListTest">
+				<Option output="bin/RandomAccessListTest/my-compiler" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin/RandomAccessListTest/" />
+				<Option object_output="obj/RandomAccessListTest/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-std=c++11" />
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
-		<Unit filename="backend/backend.h" />
-		<Unit filename="backend/x86_64/x86_64_asm_node.h" />
-		<Unit filename="backend/x86_64/x86_64_asm_nodes.h" />
-		<Unit filename="backend/x86_64/x86_64_asm_writer.h" />
-		<Unit filename="backend/x86_64/x86_64_backend.cpp" />
-		<Unit filename="backend/x86_64/x86_64_backend.h" />
-		<Unit filename="backend/x86_64/x86_64_register_allocator.h" />
-		<Unit filename="backend/x86_64/x86_64_rtl_to_asm.h" />
-		<Unit filename="construct_basic_block_graph.h" />
-		<Unit filename="construct_liveness_info.h" />
-		<Unit filename="context.cpp" />
-		<Unit filename="context.h" />
-		<Unit filename="convert_ssa_to_rtl.h" />
-		<Unit filename="dump.cpp" />
-		<Unit filename="dump.h" />
-		<Unit filename="main.cpp" />
-		<Unit filename="optimization/const_dead_code/const_dead_code.h" />
-		<Unit filename="optimization/control_flow_simplification/control_flow_simplification.h" />
-		<Unit filename="optimization/phi_removal/phi_removal.h" />
-		<Unit filename="parser/parser.cpp" />
-		<Unit filename="parser/parser.h" />
-		<Unit filename="rtl/rtl_node.h" />
-		<Unit filename="rtl/rtl_nodes.h" />
-		<Unit filename="ssa/ssa_const.h" />
-		<Unit filename="ssa/ssa_control_transfer.h" />
-		<Unit filename="ssa/ssa_move.h" />
-		<Unit filename="ssa/ssa_node.h" />
-		<Unit filename="ssa/ssa_nodes.h" />
-		<Unit filename="ssa/ssa_phi.h" />
-		<Unit filename="ssa/ssa_visitor.h" />
-		<Unit filename="tokenizer/token.h" />
-		<Unit filename="tokenizer/token_names.h" />
-		<Unit filename="types/type.h" />
-		<Unit filename="types/type_builtin.cpp" />
-		<Unit filename="types/type_builtin.h" />
-		<Unit filename="types/types.h" />
+		<Unit filename="backend/backend.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="backend/x86_64/x86_64_asm_node.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="backend/x86_64/x86_64_asm_nodes.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="backend/x86_64/x86_64_asm_writer.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="backend/x86_64/x86_64_backend.cpp">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="backend/x86_64/x86_64_backend.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="backend/x86_64/x86_64_register_allocator.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="backend/x86_64/x86_64_rtl_to_asm.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="construct_basic_block_graph.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="construct_liveness_info.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="context.cpp">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="context.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="convert_ssa_to_rtl.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="dump.cpp">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="dump.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="main.cpp">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="optimization/const_dead_code/const_dead_code.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="optimization/control_flow_simplification/control_flow_simplification.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="optimization/phi_removal/phi_removal.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="parser/parser.cpp">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="parser/parser.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="random_access_list_test.cpp">
+			<Option target="RandomAccessListTest" />
+		</Unit>
+		<Unit filename="rtl/rtl_node.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="rtl/rtl_nodes.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="ssa/ssa_const.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="ssa/ssa_control_transfer.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="ssa/ssa_move.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="ssa/ssa_node.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="ssa/ssa_nodes.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="ssa/ssa_phi.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="ssa/ssa_visitor.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="tokenizer/token.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="tokenizer/token_names.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="types/type.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="types/type_builtin.cpp">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="types/type_builtin.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="types/types.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="util/random_access_list.h" />
-		<Unit filename="values/value.h" />
-		<Unit filename="values/values.h" />
+		<Unit filename="values/value.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="values/values.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
 		<Extensions>
 			<envvars />
 			<code_completion />
