@@ -30,7 +30,7 @@
 #include <iostream>
 #include <cassert>
 
-/** uses Sparse Constant Propagation
+/** uses Sparse Conditional Constant Propagation
  */
 class ConstantPropagationAndDeadCodeElimination final
 {
