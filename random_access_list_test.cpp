@@ -108,7 +108,7 @@ std::unordered_map<const Item<N> *, std::size_t> Item<N>::items;
 void test()
 {
     random_access_list<Item<1>> l1;
-    std::deque<Item<2>> l2;
+    std::list<Item<2>> l2;
     std::default_random_engine rg;
     std::function<void()> functions[] =
     {
@@ -147,7 +147,9 @@ void test()
                 return;
             *dumpOutputStream << "insert " << position << std::endl;
             l1.insert(l1.begin() + position, Item<1>());
-            l2.insert(l2.begin() + position, Item<2>());
+            auto l2p = l2.begin();
+            std::advance(l2p, position);
+            l2.insert(l2p, Item<2>());
         },
         [&]()
         {
@@ -158,11 +160,17 @@ void test()
                 return;
             *dumpOutputStream << "erase " << position << std::endl;
             l1.erase(l1.begin() + position);
-            l2.erase(l2.begin() + position);
+            auto l2p = l2.begin();
+            std::advance(l2p, position);
+            l2.erase(l2p);
         },
     };
-    for(std::size_t i = 0; i < 20; i++)
+    const std::size_t stepCount = 3;
+    for(std::size_t i = 0; i < 3; i++)
     {
+        *dumpOutputStream << i << ":\n";
+        if(i == stepCount - 1)
+            *dumpOutputStream << std::flush;
         functions[std::uniform_int_distribution<std::size_t>(0, sizeof(functions) / sizeof(functions[0]) - 1)(rg)]();
         *dumpOutputStream << l1.size() << " [";
         const char *seperator = "";

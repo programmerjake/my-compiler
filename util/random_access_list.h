@@ -100,6 +100,8 @@ protected:
             subtree3->parent = node2;
         node1->parent = node2;
         node2->parent = parent;
+        if(parent == nullptr)
+            end_node.tree_base = node2;
         node1->left = subtree1;
         node1->right = subtree2;
         node2->right = subtree3;
@@ -125,6 +127,8 @@ protected:
         if(subtree3)
             subtree3->parent = node2;
         node1->parent = parent;
+        if(parent == nullptr)
+            end_node.tree_base = node1;
         node2->parent = node1;
         node1->left = subtree1;
         node2->left = subtree2;
@@ -366,15 +370,15 @@ protected:
     };
     iterator_imp begin_imp() const
     {
-        return iterator_imp(end_node->next);
+        return iterator_imp(end_node.next);
     }
     iterator_imp end_imp() const
     {
-        return iterator_imp(const_cast<node_base *>(&end_node));
+        return iterator_imp(const_cast<node_base *>(static_cast<const node_base *>(&end_node)));
     }
     iterator_imp last_imp() const
     {
-        return iterator_imp(end_node->prev);
+        return iterator_imp(end_node.prev);
     }
     bool empty() const
     {
@@ -407,8 +411,9 @@ protected:
         end_node.prev = end_node.next = &end_node;
         end_node.tree_base = nullptr;
     }
-    static void insert_before(node_base *new_node, node_base *&tree_base, std::ptrdiff_t tree_base_offset)
+    void insert_before(node_base *new_node, node_base *&tree_base, std::ptrdiff_t tree_base_offset)
     {
+        assert(new_node);
         assert(tree_base);
         if(tree_base_offset <= 0) // insert on left side of tree_base
         {
@@ -424,6 +429,10 @@ protected:
                 new_node->parent = tree_base;
                 new_node->tree_depth = 0;
                 new_node->tree_node_count = 1;
+                for(node_base *node = tree_base; node != nullptr; node = node->parent)
+                {
+                    node->calc_depth_and_node_count();
+                }
             }
             else
             {
@@ -444,6 +453,10 @@ protected:
                 new_node->parent = tree_base;
                 new_node->tree_depth = 0;
                 new_node->tree_node_count = 1;
+                for(node_base *node = tree_base; node != nullptr; node = node->parent)
+                {
+                    node->calc_depth_and_node_count();
+                }
             }
             else
             {
@@ -454,6 +467,8 @@ protected:
     }
     void insert_imp(node_base *new_node, iterator_imp insert_before_iter)
     {
+        assert(new_node);
+        assert(insert_before_iter.node);
         if(empty())
         {
             add_first_node(new_node);
@@ -463,15 +478,17 @@ protected:
     }
     void push_front_imp(node_base *new_node)
     {
+        assert(new_node);
         if(empty())
         {
             add_first_node(new_node);
             return;
         }
-        insert_imp(new_node, end_node->next); // begin
+        insert_imp(new_node, end_node.next); // begin
     }
     void push_back_imp(node_base *new_node)
     {
+        assert(new_node);
         if(empty())
         {
             add_first_node(new_node);
@@ -481,14 +498,155 @@ protected:
     }
     void remove_imp(iterator_imp iter)
     {
+        node_base *node = iter.node;
         assert(!empty());
         if(unit_size())
         {
+            assert(node == end_node.next); // node == begin
             remove_only_node();
             return;
         }
-        assert(false);
-        #warning finish
+        assert(node);
+        assert(!node->is_end());
+        if(node->left == nullptr || node->right == nullptr)
+        {
+            node_base *parent = node->parent;
+            node_base **pnode;
+            if(parent)
+            {
+                if(parent->left == node)
+                {
+                    assert(parent->right != node);
+                    pnode = &parent->left;
+                }
+                else
+                {
+                    assert(parent->right == node);
+                    assert(parent->left != node);
+                    pnode = &parent->right;
+                }
+            }
+            else
+            {
+                pnode = &end_node.tree_base;
+            }
+            if(node->left == nullptr)
+            {
+                *pnode = node->right;
+            }
+            else
+            {
+                *pnode = node->left;
+            }
+            node->prev->next = node->next;
+            node->next->prev = node->prev;
+            while(parent)
+            {
+                node = parent;
+                node->calc_depth_and_node_count();
+                parent = node->parent;
+                balance(node);
+            }
+            return;
+        }
+        node_base *replacement_node = node->next;
+        assert(replacement_node->left == nullptr || replacement_node->right == nullptr);
+        remove_imp(iterator_imp(replacement_node));
+        node_base *parent = node->parent;
+        node_base **pnode;
+        if(parent)
+        {
+            if(parent->left == node)
+            {
+                assert(parent->right != node);
+                pnode = &parent->left;
+            }
+            else
+            {
+                assert(parent->right == node);
+                assert(parent->left != node);
+                pnode = &parent->right;
+            }
+        }
+        else
+        {
+            pnode = &end_node.tree_base;
+        }
+        *pnode = replacement_node;
+        replacement_node->parent = parent;
+        replacement_node->left = node->left;
+        if(node->left)
+            node->left->parent = replacement_node;
+        replacement_node->right = node->right;
+        if(node->right)
+            node->right->parent = replacement_node;
+        replacement_node->tree_node_count = node->tree_node_count;
+        replacement_node->tree_depth = node->tree_depth;
+        replacement_node->prev = node->prev;
+        replacement_node->next = node->next;
+        node->prev->next = replacement_node;
+        node->next->prev = replacement_node;
+    }
+    void pop_front_imp()
+    {
+        assert(!empty());
+        remove_imp(begin_imp());
+    }
+    void pop_back_imp()
+    {
+        assert(!empty());
+        remove_imp(last_imp());
+    }
+    random_access_list_base() = default;
+    random_access_list_base(random_access_list_base &&rt)
+    {
+        end_node.tree_base = rt.end_node.tree_base;
+        rt.end_node.tree_base = nullptr;
+        end_node.prev = rt.end_node.prev;
+        end_node.next = rt.end_node.next;
+        rt.end_node.prev = rt.end_node.next = &rt.end_node;
+        end_node.prev->next = &end_node;
+        end_node.next->prev = &end_node;
+    }
+    random_access_list_base(const random_access_list_base &) = delete;
+    random_access_list_base &operator =(const random_access_list_base &) = delete;
+    random_access_list_base &operator =(random_access_list_base &&) = delete;
+    void swap(random_access_list_base &other)
+    {
+        if(empty() && other.empty())
+            return;
+        if(other.empty())
+        {
+            other.swap(*this);
+            return;
+        }
+        if(empty())
+        {
+            end_node.tree_base = other.end_node.tree_base;
+            other.end_node.tree_base = nullptr;
+            end_node.prev = other.end_node.prev;
+            end_node.next = other.end_node.next;
+            other.end_node.prev = other.end_node.next = &other.end_node;
+            end_node.prev->next = &end_node;
+            end_node.next->prev = &end_node;
+        }
+        else
+        {
+            end_node_t temp;
+            temp.tree_base = other.end_node.tree_base;
+            other.end_node.tree_base = end_node.tree_base;
+            end_node.tree_base = temp.tree_base;
+            temp.prev = other.end_node.prev;
+            temp.next = other.end_node.next;
+            other.end_node.prev = end_node.prev;
+            other.end_node.next = end_node.next;
+            other.end_node.prev->next = &other.end_node;
+            other.end_node.next->prev = &other.end_node;
+            end_node.prev = temp.prev;
+            end_node.next = temp.next;
+            end_node.prev->next = &end_node;
+            end_node.next->prev = &end_node;
+        }
     }
 };
 
@@ -504,7 +662,15 @@ public:
     typedef value_type *pointer;
     typedef const value_type *const_pointer;
 private:
-    #error finish
+    struct node_type final : public node_base
+    {
+        T value;
+        template <typename ...Args>
+        explicit node_type(Args &&...args)
+            : value(std::forward<Args>(args)...)
+        {
+        }
+    };
 public:
     class const_iterator;
     class iterator final : public std::iterator<std::random_access_iterator_tag, T>
@@ -512,9 +678,8 @@ public:
         friend class random_access_list;
         friend class const_iterator;
     private:
-        #error finish
-        list_iterator iter;
-        iterator(list_iterator iter)
+        iterator_imp iter;
+        iterator(iterator_imp iter)
             : iter(iter)
         {
         }
@@ -524,68 +689,72 @@ public:
         }
         iterator &operator ++()
         {
-            ++iter;
+            iter.inc();
             return *this;
         }
         iterator &operator --()
         {
-            --iter;
+            iter.dec();
             return *this;
         }
         iterator operator ++(int)
         {
-            return iterator(iter++);
+            iterator retval = *this;
+            iter.inc();
+            return retval;
         }
         iterator operator --(int)
         {
-            return iterator(iter--);
+            iterator retval = *this;
+            iter.dec();
+            return retval;
         }
         bool operator ==(const iterator &rt) const
         {
-            return iter == rt.iter;
+            return iter.equals(rt.iter);
         }
         bool operator !=(const iterator &rt) const
         {
-            return iter != rt.iter;
+            return !iter.equals(rt.iter);
         }
         T &operator *() const
         {
-            return iter->value;
+            return static_cast<node_type *>(iter.node)->value;
         }
         T *operator ->() const
         {
-            return &iter->value;
+            return &static_cast<node_type *>(iter.node)->value;
         }
         iterator &operator +=(std::ptrdiff_t n)
         {
-            iter =
+            iter.advance(n);
             return *this;
         }
         iterator &operator -=(std::ptrdiff_t n)
         {
-            implementation.advance(-n);
+            iter.advance(-n);
             return *this;
         }
         friend iterator operator +(std::ptrdiff_t n, iterator i)
         {
-            i.implementation.advance(n);
+            i.iter.advance(n);
             return i;
         }
         iterator operator +(std::ptrdiff_t n) const
         {
             iterator retval = *this;
-            retval.implementation.advance(n);
+            retval.iter.advance(n);
             return retval;
         }
         iterator operator -(std::ptrdiff_t n) const
         {
             iterator retval = *this;
-            retval.implementation.advance(-n);
+            retval.iter.advance(-n);
             return retval;
         }
         std::ptrdiff_t operator -(const iterator &r) const
         {
-            return implementation - r.implementation;
+            return iter.difference(r.iter);
         }
         T &operator [](std::ptrdiff_t n) const
         {
@@ -593,29 +762,28 @@ public:
         }
         bool operator <(const iterator &r) const
         {
-            return implementation.compare(r.implementation) < 0;
+            return iter.compare(r.iter) < 0;
         }
         bool operator >(const iterator &r) const
         {
-            return implementation.compare(r.implementation) > 0;
+            return iter.compare(r.iter) > 0;
         }
         bool operator <=(const iterator &r) const
         {
-            return implementation.compare(r.implementation) <= 0;
+            return iter.compare(r.iter) <= 0;
         }
         bool operator >=(const iterator &r) const
         {
-            return implementation.compare(r.implementation) >= 0;
+            return iter.compare(r.iter) >= 0;
         }
     };
     class const_iterator final : public std::iterator<std::random_access_iterator_tag, const T>
     {
         friend class random_access_list;
     private:
-        iterator_implementation implementation;
-        #error finish
-        const_iterator(iterator_implementation implementation)
-            : implementation(implementation)
+        iterator_imp iter;
+        const_iterator(iterator_imp iter)
+            : iter(iter)
         {
         }
     public:
@@ -623,77 +791,77 @@ public:
         {
         }
         const_iterator(iterator i)
-            : implementation(i.implementation)
+            : iter(i.iter)
         {
         }
         const_iterator &operator ++()
         {
-            implementation.incr();
+            iter.inc();
             return *this;
         }
         const_iterator &operator --()
         {
-            implementation.decr();
+            iter.dec();
             return *this;
         }
         const_iterator operator ++(int)
         {
             const_iterator retval = *this;
-            implementation.incr();
+            iter.inc();
             return retval;
         }
         const_iterator operator --(int)
         {
             const_iterator retval = *this;
-            implementation.decr();
+            iter.dec();
             return retval;
         }
         bool operator ==(const const_iterator &rt) const
         {
-            return implementation == rt.implementation;
+            return iter.equals(rt.iter);
         }
         bool operator !=(const const_iterator &rt) const
         {
-            return implementation != rt.implementation;
+            return !iter.equals(rt.iter);
         }
         const T &operator *() const
         {
-            return static_cast<node_type *>(implementation.node_iterator.node)->value;
+            return static_cast<node_type *>(iter.node)->value;
         }
         const T *operator ->() const
         {
-            return &static_cast<node_type *>(implementation.node_iterator.node)->value;
+            return &static_cast<node_type *>(iter.node)->value;
         }
         const_iterator &operator +=(std::ptrdiff_t n)
         {
-            implementation.advance(n);
+            iter.advance(n);
             return *this;
         }
         const_iterator &operator -=(std::ptrdiff_t n)
         {
-            implementation.advance(-n);
+            iter.advance(-n);
             return *this;
         }
         friend const_iterator operator +(std::ptrdiff_t n, const_iterator i)
         {
-            i.implementation.advance(n);
+            i.iter.advance(n);
             return i;
         }
         const_iterator operator +(std::ptrdiff_t n) const
         {
             const_iterator retval = *this;
-            retval.implementation.advance(n);
+            retval.iter.advance(n);
             return retval;
         }
         const_iterator operator -(std::ptrdiff_t n) const
         {
             const_iterator retval = *this;
-            retval.implementation.advance(-n);
+            retval.iter.advance(-n);
             return retval;
         }
         std::ptrdiff_t operator -(const const_iterator &r) const
         {
-            return implementation - r.implementation;
+            return iter.difference(r.iter);
         }
         const T &operator [](std::ptrdiff_t n) const
         {
@@ -701,194 +869,171 @@ public:
         }
         bool operator <(const const_iterator &r) const
         {
-            return implementation.compare(r.implementation) < 0;
+            return iter.compare(r.iter) < 0;
         }
         bool operator >(const const_iterator &r) const
         {
-            return implementation.compare(r.implementation) > 0;
+            return iter.compare(r.iter) > 0;
         }
         bool operator <=(const const_iterator &r) const
         {
-            return implementation.compare(r.implementation) <= 0;
+            return iter.compare(r.iter) <= 0;
         }
         bool operator >=(const const_iterator &r) const
         {
-            return implementation.compare(r.implementation) >= 0;
+            return iter.compare(r.iter) >= 0;
         }
     };
     iterator begin()
     {
-        #error finish
-        return iterator(begin_implementation());
+        return iterator(begin_imp());
     }
     const_iterator begin() const
     {
-        #error finish
-        return const_iterator(begin_implementation());
+        return const_iterator(begin_imp());
     }
     const_iterator cbegin() const
     {
-        #error finish
-        return const_iterator(begin_implementation());
+        return const_iterator(begin_imp());
     }
     iterator end()
     {
-        #error finish
-        return iterator(end_implementation());
+        return iterator(end_imp());
     }
     const_iterator end() const
     {
-        #error finish
-        return const_iterator(end_implementation());
+        return const_iterator(end_imp());
     }
     const_iterator cend() const
     {
-        #error finish
-        return const_iterator(end_implementation());
+        return const_iterator(end_imp());
     }
     iterator last()
     {
-        #error finish
-        return iterator(last_implementation());
+        return iterator(last_imp());
     }
     const_iterator last() const
     {
-        #error finish
-        return const_iterator(last_implementation());
+        return const_iterator(last_imp());
     }
     const_iterator clast() const
     {
-        #error finish
-        return const_iterator(last_implementation());
+        return const_iterator(last_imp());
     }
     bool empty() const
     {
-        #error finish
-        return node_count == 0;
+        return random_access_list_base::empty();
     }
     std::size_t size() const
     {
-        #error finish
-        return node_count;
+        return random_access_list_base::size();
     }
     void pop_back()
     {
-        #error finish
-        node_type *node = static_cast<node_type *>(nodes_end_node.left);
-        pop_back_implementation();
+        node_type *node = static_cast<node_type *>(last_imp().node);
+        pop_back_imp();
         delete node;
     }
     void pop_front()
     {
-        #error finish
-        node_type *node = static_cast<node_type *>(nodes_end_node.right);
-        pop_front_implementation();
+        node_type *node = static_cast<node_type *>(begin_imp().node);
+        pop_front_imp();
         delete node;
     }
     void push_back(const T &v)
     {
-        #error finish
         node_type *node = new node_type(v);
-        push_back_implementation(node);
+        push_back_imp(node);
     }
     void push_back(T &&v)
     {
-        #error finish
         node_type *node = new node_type(std::move(v));
-        push_back_implementation(node);
+        push_back_imp(node);
     }
     template <typename ...Args>
     void emplace_back(Args &&...args)
     {
-        #error finish
         node_type *node = new node_type(std::forward<Args>(args)...);
-        push_back_implementation(node);
+        push_back_imp(node);
     }
     void push_front(const T &v)
     {
-        #error finish
         node_type *node = new node_type(v);
-        push_front_implementation(node);
+        push_front_imp(node);
     }
     void push_front(T &&v)
     {
-        #error finish
         node_type *node = new node_type(std::move(v));
-        push_front_implementation(node);
+        push_front_imp(node);
     }
     template <typename ...Args>
     void emplace_front(Args &&...args)
     {
-        #error finish
         node_type *node = new node_type(std::forward<Args>(args)...);
-        push_front_implementation(node);
+        push_front_imp(node);
     }
     template <typename ...Args>
     iterator emplace(const_iterator pos, Args &&...args)
     {
         node_type *node = new node_type(std::forward<Args>(args)...);
-        #error finish
-        return iterator(insert_implementation(pos.implementation, node));
+        insert_imp(node, pos.iter);
+        return iterator(iterator_imp(node));
     }
     iterator insert(const_iterator pos, const T &v)
     {
-        node_type *node = new node_type(v);
-        #error finish
-        return iterator(insert_implementation(pos.implementation, node));
+        return emplace(pos, v);
     }
     iterator insert(const_iterator pos, T &&v)
     {
-        node_type *node = new node_type(std::move(v));
-        return iterator(insert_implementation(pos.implementation, node));
-        #error finish
+        return emplace(pos, std::move(v));
     }
     iterator erase(const_iterator pos)
     {
-        #error finish
-        node_type *node = static_cast<node_type *>(pos.implementation.node_iterator.node);
-        iterator retval(pos.implementation);
+        node_type *node = static_cast<node_type *>(pos.iter.node);
+        iterator retval(pos.iter);
         ++retval;
-        erase_implementation(pos.implementation);
+        remove_imp(pos.iter);
         delete node;
         return retval;
     }
     void resize(std::size_t count)
     {
-        #error finish
-        while(count < size())
+        std::size_t current_size = size();
+        while(count < current_size)
         {
             pop_back();
+            current_size--;
         }
-        while(count > size())
+        while(count > current_size)
         {
             emplace_back();
+            current_size++;
         }
     }
     void resize(std::size_t count, const T &value)
     {
-        #error finish
-        while(count < size())
+        std::size_t current_size = size();
+        while(count < current_size)
         {
             pop_back();
+            current_size--;
         }
-        while(count > size())
+        while(count > current_size)
         {
             push_back(value);
+            current_size++;
         }
     }
     void clear()
     {
-        #error finish
         while(!empty())
             pop_back();
     }
     random_access_list()
     {
-        #error finish
     }
     random_access_list(const random_access_list &rt)
     {
-        #error finish
         for(const T &v : rt)
         {
             push_back(v);
@@ -897,21 +1042,17 @@ public:
     random_access_list(random_access_list &&rt)
         : random_access_list_base(std::move(rt))
     {
-        #error finish
     }
     ~random_access_list()
     {
-        #error finish
         clear();
     }
     void swap(random_access_list &rt)
     {
-        #error finish
         random_access_list_base::swap(rt);
     }
     random_access_list &operator =(random_access_list &&rt)
     {
-        #error finish
         if(&rt == this)
             return *this;
         random_access_list(std::move(rt)).swap(*this);
@@ -919,7 +1060,6 @@ public:
     }
     random_access_list &operator =(const random_access_list &rt)
     {
-        #error finish
         if(&rt == this)
             return *this;
         random_access_list(rt).swap(*this);
@@ -927,25 +1067,22 @@ public:
     }
     void splice(const_iterator pos, random_access_list &other, const_iterator it)
     {
-        #error finish
         if(&other == this && it == pos)
             return;
-        node_type *node = static_cast<node_type *>(pos.implementation.node_iterator.node);
-        other.erase_implementation(it.implementation.node_iterator.node);
-        insert_implementation(pos, node);
+        node_type *node = static_cast<node_type *>(pos.iter.node);
+        other.remove_imp(it.iter.node);
+        insert_imp(node, pos.iter);
     }
     void splice(const_iterator pos, random_access_list &&other, const_iterator it)
     {
-        #error finish
         if(&other == this && it == pos)
             return;
-        node_type *node = static_cast<node_type *>(pos.implementation.node_iterator.node);
-        other.erase_implementation(it.implementation.node_iterator.node);
-        insert_implementation(pos, node);
+        node_type *node = static_cast<node_type *>(pos.iter.node);
+        other.remove_imp(it.iter.node);
+        insert_imp(node, pos.iter);
     }
     void splice(const_iterator pos, random_access_list &other)
     {
-        #error finish
         auto iter = other.begin();
         while(iter != other.end())
         {
@@ -957,7 +1094,6 @@ public:
     }
     void splice(const_iterator pos, random_access_list &&other)
     {
-        #error finish
         auto iter = other.begin();
         while(iter != other.end())
         {
@@ -969,7 +1105,6 @@ public:
     }
     void splice(const_iterator pos, random_access_list &other, const_iterator first, const_iterator last)
     {
-        #error finish
         auto iter = first;
         while(iter != last)
         {
@@ -981,7 +1116,6 @@ public:
     }
     void splice(const_iterator pos, random_access_list &&other, const_iterator first, const_iterator last)
     {
-        #error finish
         auto iter = first;
         while(iter != last)
         {
