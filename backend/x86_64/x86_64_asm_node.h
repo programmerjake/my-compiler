@@ -128,6 +128,17 @@ public:
         {
             return !operator ==(rt);
         }
+        std::size_t getHash() const
+        {
+            std::size_t retval = 0;
+            for(bool v : {int8, int16, int32, int64, float32, float64})
+            {
+                retval *= 2;
+                if(v)
+                    retval++;
+            }
+            return retval;
+        }
     };
     const PhysicalRegisterKindMask physicalRegisterKindMask;
 private:
@@ -215,7 +226,8 @@ public:
         if(retval == nullptr)
         {
             retval = std::make_shared<std::vector<std::shared_ptr<X86_64AsmRegister>>>();
-            for(char nameMiddle : {'a', 'b', 'c', 'd'}) // we don't use ah through dh becuase they can't be used in all instructions because they conflict with the REX (64-bit override) prefix
+            context->setValue<std::vector<std::shared_ptr<X86_64AsmRegister>>>(retval);
+            for(char nameMiddle : {'a', 'c', 'd', 'b'}) // we don't use ah through dh becuase they can't be used in all instructions because they conflict with the REX (64-bit override) prefix
             {
                 constructAndAddIntegerPhysicalRegisters(context,
                                                         retval,
@@ -269,6 +281,18 @@ public:
         return *retval;
     }
 };
+
+namespace std
+{
+template <>
+struct hash<X86_64AsmRegister::PhysicalRegisterKindMask> final
+{
+    std::size_t operator ()(X86_64AsmRegister::PhysicalRegisterKindMask v) const
+    {
+        return v.getHash();
+    }
+};
+}
 
 class X86_64TypeToPhysicalRegisterKindMask final : public TypeVisitor
 {
@@ -362,6 +386,7 @@ public:
     {
         return false;
     }
+    virtual void replaceRegister(std::shared_ptr<X86_64AsmRegister> originalRegister, std::shared_ptr<X86_64AsmRegister> newRegister) = 0;
 };
 
 class X86_64AsmBasicBlock;
@@ -455,6 +480,9 @@ public:
     virtual void visit(X86_64AsmNodeVisitor &visitor) override
     {
         visitor.visitX86_64AsmNodeJump(std::static_pointer_cast<X86_64AsmNodeJump>(shared_from_this()));
+    }
+    virtual void replaceRegister(std::shared_ptr<X86_64AsmRegister> originalRegister, std::shared_ptr<X86_64AsmRegister> newRegister) override
+    {
     }
 };
 
@@ -598,6 +626,11 @@ public:
     {
         visitor.visitX86_64AsmNodeCompareAgainstConstantAndJump(std::static_pointer_cast<X86_64AsmNodeCompareAgainstConstantAndJump>(shared_from_this()));
     }
+    virtual void replaceRegister(std::shared_ptr<X86_64AsmRegister> originalRegister, std::shared_ptr<X86_64AsmRegister> newRegister) override
+    {
+        if(lhs == originalRegister)
+            lhs = newRegister;
+    }
 };
 
 class X86_64AsmNodeMove final : public X86_64AsmNode
@@ -621,6 +654,13 @@ public:
     {
         visitor.visitX86_64AsmNodeMove(std::static_pointer_cast<X86_64AsmNodeMove>(shared_from_this()));
     }
+    virtual void replaceRegister(std::shared_ptr<X86_64AsmRegister> originalRegister, std::shared_ptr<X86_64AsmRegister> newRegister) override
+    {
+        if(source == originalRegister)
+            source = newRegister;
+        if(dest == originalRegister)
+            dest = newRegister;
+    }
 };
 
 class X86_64AsmNodeLoad final : public X86_64AsmNode
@@ -643,6 +683,13 @@ public:
     virtual void visit(X86_64AsmNodeVisitor &visitor) override
     {
         visitor.visitX86_64AsmNodeLoad(std::static_pointer_cast<X86_64AsmNodeLoad>(shared_from_this()));
+    }
+    virtual void replaceRegister(std::shared_ptr<X86_64AsmRegister> originalRegister, std::shared_ptr<X86_64AsmRegister> newRegister) override
+    {
+        if(address == originalRegister)
+            address = newRegister;
+        if(dest == originalRegister)
+            dest = newRegister;
     }
 };
 
@@ -671,6 +718,13 @@ public:
     {
         return true;
     }
+    virtual void replaceRegister(std::shared_ptr<X86_64AsmRegister> originalRegister, std::shared_ptr<X86_64AsmRegister> newRegister) override
+    {
+        if(address == originalRegister)
+            address = newRegister;
+        if(value == originalRegister)
+            value = newRegister;
+    }
 };
 
 class X86_64AsmNodeLoadConstant final : public X86_64AsmNode
@@ -693,6 +747,11 @@ public:
     virtual void visit(X86_64AsmNodeVisitor &visitor) override
     {
         visitor.visitX86_64AsmNodeLoadConstant(std::static_pointer_cast<X86_64AsmNodeLoadConstant>(shared_from_this()));
+    }
+    virtual void replaceRegister(std::shared_ptr<X86_64AsmRegister> originalRegister, std::shared_ptr<X86_64AsmRegister> newRegister) override
+    {
+        if(dest == originalRegister)
+            dest = newRegister;
     }
 };
 

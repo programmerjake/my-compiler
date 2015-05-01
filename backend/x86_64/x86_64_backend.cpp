@@ -20,11 +20,17 @@
 #include "x86_64_asm_nodes.h"
 #include "x86_64_rtl_to_asm.h"
 #include "x86_64_asm_writer.h"
+#include "x86_64_register_allocator.h"
 
 void BackendX86_64::outputAsAssembly(std::ostream &os, std::list<std::shared_ptr<RTLFunction>> functionsIn) const
 {
     std::list<std::shared_ptr<X86_64AsmFunction>> functions = X86_64ConvertRTLToAsm::run(functionsIn);
     functionsIn.clear();
+    X86_64RegisterAllocator ra;
+    for(std::shared_ptr<X86_64AsmFunction> function : functions)
+    {
+        ra.visitX86_64AsmFunction(function);
+    }
     switch(assemblyDialect)
     {
     case AssemblyDialect::GAS_Intel:

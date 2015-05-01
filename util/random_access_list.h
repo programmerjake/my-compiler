@@ -268,6 +268,17 @@ protected:
                 return pend_node->tree_base->tree_node_count;
             return 0;
         }
+        if(node->prev->is_end()) // is begin
+        {
+            return 0;
+        }
+        if(node->next->is_end()) // is last
+        {
+            end_node_t *pend_node = static_cast<end_node_t *>(node->next);
+            if(pend_node->tree_base)
+                return pend_node->tree_base->tree_node_count - 1;
+            return 0;
+        }
         for(;;)
         {
             node_base *parent = node->parent;
