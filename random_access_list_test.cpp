@@ -109,7 +109,7 @@ void test()
 {
     random_access_list<Item<1>> l1;
     std::list<Item<2>> l2;
-    std::default_random_engine rg;
+    std::default_random_engine rg(214);
     std::function<void()> functions[] =
     {
         [&]()
@@ -165,13 +165,14 @@ void test()
             l2.erase(l2p);
         },
     };
-    const std::size_t stepCount = 3;
-    for(std::size_t i = 0; i < 3; i++)
+    const std::size_t stepCount = 13;
+    for(std::size_t i = 0; i < stepCount; i++)
     {
         *dumpOutputStream << i << ":\n";
         if(i == stepCount - 1)
             *dumpOutputStream << std::flush;
         functions[std::uniform_int_distribution<std::size_t>(0, sizeof(functions) / sizeof(functions[0]) - 1)(rg)]();
+        l1.verify_all();
         *dumpOutputStream << l1.size() << " [";
         const char *seperator = "";
         for(auto &v : l1)

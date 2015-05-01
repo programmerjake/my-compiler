@@ -109,6 +109,10 @@ protected:
         tree = node2;
         node1->calc_depth_and_node_count();
         node2->calc_depth_and_node_count();
+        for(node_base *node = parent; node; node = node->parent)
+        {
+            node->calc_depth_and_node_count();
+        }
     }
     void rotate_right(node_base *&tree)
     {
@@ -135,8 +139,12 @@ protected:
         node2->right = subtree3;
         node1->right = node2;
         tree = node1;
-        node1->calc_depth_and_node_count();
         node2->calc_depth_and_node_count();
+        node1->calc_depth_and_node_count();
+        for(node_base *node = parent; node; node = node->parent)
+        {
+            node->calc_depth_and_node_count();
+        }
     }
     void balance(node_base *&tree)
     {
@@ -460,7 +468,7 @@ protected:
             }
             else
             {
-                insert_before(new_node, tree_base->right, tree_base_offset + tree_base->right->left_node_count() + 1);
+                insert_before(new_node, tree_base->right, tree_base_offset - tree_base->right->left_node_count() - 1);
             }
         }
         balance(tree_base);
@@ -540,6 +548,8 @@ protected:
             }
             node->prev->next = node->next;
             node->next->prev = node->prev;
+            if(*pnode)
+                (*pnode)->parent = parent;
             while(parent)
             {
                 node = parent;
@@ -646,6 +656,54 @@ protected:
             end_node.next = temp.next;
             end_node.prev->next = &end_node;
             end_node.next->prev = &end_node;
+        }
+    }
+    void verify_all_helper(node_base *tree, node_base *before_begin, node_base *end)
+    {
+        assert(tree != nullptr);
+        assert(before_begin != nullptr);
+        assert(end != nullptr);
+        assert(tree->tree_node_count == tree->left_node_count() + 1 + tree->right_node_count());
+        assert(tree->tree_depth == std::max(tree->depth_through_left(), tree->depth_through_right()));
+        if(tree->left == nullptr)
+        {
+            assert(tree == before_begin->next);
+            assert(tree->prev == before_begin);
+        }
+        else
+        {
+            assert(tree->left->parent == tree);
+            verify_all_helper(tree->left, before_begin, tree);
+        }
+        if(tree->right == nullptr)
+        {
+            assert(tree == end->prev);
+            assert(tree->next == end);
+        }
+        else
+        {
+            assert(tree->right->parent == tree);
+            verify_all_helper(tree->right, tree, end);
+        }
+    }
+    void verify_all()
+    {
+        assert(end_node.left == nullptr);
+        assert(end_node.right == nullptr);
+        assert(end_node.parent == nullptr);
+        assert(end_node.tree_depth == 0);
+        assert(end_node.tree_node_count == 0);
+        if(empty())
+        {
+            assert(end_node.prev == &end_node);
+            assert(end_node.next == &end_node);
+            assert(end_node.tree_base == nullptr);
+        }
+        else
+        {
+            assert(end_node.tree_base);
+            assert(end_node.tree_base->parent == nullptr);
+            verify_all_helper(end_node.tree_base, &end_node, &end_node);
         }
     }
 };
@@ -1124,6 +1182,10 @@ public:
             splice(pos, other, iter);
             iter = next_iter;
         }
+    }
+    void verify_all()
+    {
+        random_access_list_base::verify_all();
     }
 };
 
