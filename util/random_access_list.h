@@ -23,10 +23,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <utility>
-#include <deque>
-#include <list>
 #include <algorithm>
 #include <cassert>
+#include <sstream>
+#include <string>
+#include <unordered_map>
+#include <vector>
+#include <iostream>
 
 class random_access_list_base
 {
@@ -150,6 +153,14 @@ protected:
     {
         if(!tree)
             return;
+        if(tree->parent)
+        {
+            assert(&tree == &tree->parent->left || &tree == &tree->parent->right);
+        }
+        else
+        {
+            assert(&tree == &end_node.tree_base);
+        }
         std::uint8_t ld = tree->depth_through_left();
         std::uint8_t rd = tree->depth_through_right();
         if(ld + 1 < rd)
@@ -530,7 +541,6 @@ protected:
                 else
                 {
                     assert(parent->right == node);
-                    assert(parent->left != node);
                     pnode = &parent->right;
                 }
             }
@@ -555,7 +565,25 @@ protected:
                 node = parent;
                 node->calc_depth_and_node_count();
                 parent = node->parent;
-                balance(node);
+                if(parent)
+                {
+                    if(parent->left == node)
+                    {
+                        assert(parent->right != node);
+                        pnode = &parent->left;
+                    }
+                    else
+                    {
+                        assert(parent->right == node);
+                        pnode = &parent->right;
+                    }
+                }
+                else
+                {
+                    pnode = &end_node.tree_base;
+                }
+                balance(*pnode);
+                parent = (*pnode)->parent;
             }
             return;
         }
@@ -706,6 +734,9 @@ protected:
             verify_all_helper(end_node.tree_base, &end_node, &end_node);
         }
     }
+#if 0
+    virtual void dump_tree(std::ostream &os) = 0;
+#endif
 };
 
 template <typename T>
@@ -942,6 +973,8 @@ public:
             return iter.compare(r.iter) >= 0;
         }
     };
+    typedef std::reverse_iterator<iterator> reverse_iterator;
+    typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
     iterator begin()
     {
         return iterator(begin_imp());
@@ -965,6 +998,30 @@ public:
     const_iterator cend() const
     {
         return const_iterator(end_imp());
+    }
+    reverse_iterator rbegin()
+    {
+        return reverse_iterator(end());
+    }
+    reverse_iterator rbegin() const
+    {
+        return reverse_iterator(cend());
+    }
+    reverse_iterator crbegin() const
+    {
+        return reverse_iterator(cend());
+    }
+    reverse_iterator rend()
+    {
+        return reverse_iterator(begin());
+    }
+    reverse_iterator rend() const
+    {
+        return reverse_iterator(cbegin());
+    }
+    reverse_iterator crend() const
+    {
+        return reverse_iterator(cbegin());
     }
     iterator last()
     {
@@ -1183,10 +1240,101 @@ public:
             iter = next_iter;
         }
     }
-    void verify_all()
+    void verify_all() // check data structure consistency
     {
         random_access_list_base::verify_all();
     }
+#if 0
+    void dump_tree(std::ostream &os) override final
+    {
+        struct node_display_data final
+        {
+            std::string value;
+            std::size_t start_x = 0, x = 0, y = 0;
+        };
+        std::unordered_map<node_base *, node_display_data> values;
+        std::size_t width = 0, height = 0;
+        for(iterator i = begin(); i != end(); i++)
+        {
+            std::ostringstream ss;
+            ss << *i;
+            node_display_data node_data;
+            node_data.value = ss.str();
+            node_data.start_x = width + 1;
+            node_data.x = width + (node_data.value.size()) / 2 + 1;
+            node_data.y = i.iter.node->tree_depth;
+            width += node_data.value.size() + 1;
+            std::size_t current_height = (std::size_t)i.iter.node->tree_depth + 1;
+            if(current_height > height)
+                height = current_height;
+            values.emplace(i.iter.node, node_data);
+        }
+        std::vector<std::vector<char>> lines;
+        lines.resize(height);
+        for(std::vector<char> &line : lines)
+        {
+            line.assign(width, ' ');
+        }
+        for(iterator i = begin(); i != end(); i++)
+        {
+            const node_display_data &src = values[i.iter.node];
+            const node_display_data &dest1 = values[i.iter.node->left ? i.iter.node->left : i.iter.node];
+            const node_display_data &dest2 = values[i.iter.node->right ? i.iter.node->right : i.iter.node];
+            std::size_t minX = src.x;
+            std::size_t maxX = src.x;
+            for(std::size_t destX : {dest1.x, dest2.x})
+            {
+                if(destX < minX)
+                    minX = destX;
+                if(destX > maxX)
+                    maxX = destX;
+            }
+            for(std::size_t x = minX; x <= maxX; x++)
+            {
+                char &ch = lines[src.y][x];
+                if(ch == ' ' || ch == '-')
+                    ch = '-';
+                else if(ch == '|' || ch == '+')
+                    ch = '+';
+            }
+            std::size_t minY = std::min(src.y, dest1.y);
+            std::size_t maxY = std::max(src.y, dest1.y);
+            for(std::size_t y = minY; y <= maxY; y++)
+            {
+                char &ch = lines[y][dest1.x];
+                if(ch == ' ' || ch == '|')
+                    ch = '|';
+                else if(ch == '-' || ch == '+')
+                    ch = '+';
+            }
+            minY = std::min(src.y, dest2.y);
+            maxY = std::max(src.y, dest2.y);
+            for(std::size_t y = minY; y <= maxY; y++)
+            {
+                char &ch = lines[y][dest2.x];
+                if(ch == ' ' || ch == '|')
+                    ch = '|';
+                else if(ch == '-' || ch == '+')
+                    ch = '+';
+            }
+        }
+        for(iterator i = begin(); i != end(); i++)
+        {
+            const node_display_data &node_data = values[i.iter.node];
+            for(std::size_t j = 0; j < node_data.value.size(); j++)
+            {
+                assert(node_data.y < height && node_data.start_x + j < width);
+                lines[node_data.y][node_data.start_x + j] = node_data.value[j];
+            }
+        }
+        for(auto i = lines.rbegin(); i != lines.rend(); i++)
+        {
+            std::string line(i->begin(), i->end());
+            line = line.substr(1, line.find_last_not_of(' '));
+            os << line << '\n';
+        }
+    }
+#endif
 };
 
 #endif // RANDOM_ACCESS_LIST_H_INCLUDED

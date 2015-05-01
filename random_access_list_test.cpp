@@ -23,7 +23,7 @@
 #include <cassert>
 #include <random>
 #include <functional>
-#include <deque>
+#include <list>
 #include <sstream>
 
 #ifdef NDEBUG
@@ -34,7 +34,7 @@
 
 std::ostream *dumpOutputStream = &std::cout;
 
-template <size_t>
+template <size_t N>
 class Item final
 {
 private:
@@ -100,6 +100,10 @@ public:
         assert(items.count(&rt));
         return *this;
     }
+    friend std::ostream &operator <<(std::ostream &os, const Item<N> &v)
+    {
+        return os << v.id();
+    }
 };
 
 template <size_t N>
@@ -114,13 +118,13 @@ void test()
     {
         [&]()
         {
-            *dumpOutputStream << "push_back" << std::endl;
+            //*dumpOutputStream << "push_back" << std::endl;
             l1.push_back(Item<1>());
             l2.push_back(Item<2>());
         },
         [&]()
         {
-            *dumpOutputStream << "push_front" << std::endl;
+            //*dumpOutputStream << "push_front" << std::endl;
             l1.push_front(Item<1>());
             l2.push_front(Item<2>());
         },
@@ -128,7 +132,7 @@ void test()
         {
             if(l1.empty() || l2.empty())
                 return;
-            *dumpOutputStream << "pop_back" << std::endl;
+            //*dumpOutputStream << "pop_back" << std::endl;
             l1.pop_back();
             l2.pop_back();
         },
@@ -136,7 +140,7 @@ void test()
         {
             if(l1.empty() || l2.empty())
                 return;
-            *dumpOutputStream << "pop_front" << std::endl;
+            //*dumpOutputStream << "pop_front" << std::endl;
             l1.pop_front();
             l2.pop_front();
         },
@@ -145,7 +149,7 @@ void test()
             std::size_t position = std::uniform_int_distribution<std::size_t>(0, l1.size())(rg);
             if(position > l1.size() || position > l2.size())
                 return;
-            *dumpOutputStream << "insert " << position << std::endl;
+            //*dumpOutputStream << "insert " << position << std::endl;
             l1.insert(l1.begin() + position, Item<1>());
             auto l2p = l2.begin();
             std::advance(l2p, position);
@@ -158,21 +162,34 @@ void test()
             std::size_t position = std::uniform_int_distribution<std::size_t>(0, l1.size() - 1)(rg);
             if(position >= l1.size() || position >= l2.size())
                 return;
-            *dumpOutputStream << "erase " << position << std::endl;
+            //*dumpOutputStream << "erase " << position << std::endl;
             l1.erase(l1.begin() + position);
             auto l2p = l2.begin();
             std::advance(l2p, position);
             l2.erase(l2p);
         },
     };
-    const std::size_t stepCount = 13;
+    const std::size_t stepCount = 300000;
     for(std::size_t i = 0; i < stepCount; i++)
     {
-        *dumpOutputStream << i << ":\n";
-        if(i == stepCount - 1)
-            *dumpOutputStream << std::flush;
         functions[std::uniform_int_distribution<std::size_t>(0, sizeof(functions) / sizeof(functions[0]) - 1)(rg)]();
         l1.verify_all();
+        auto i1 = l1.begin();
+        auto i2 = l2.begin();
+        bool matches = true;
+        for(; i1 != l1.end() && i2 != l2.end(); ++i1, ++i2)
+        {
+            if(i1->id() != i2->id())
+            {
+                matches = false;
+                break;
+            }
+        }
+        if(i1 != l1.end() || i2 != l2.end())
+            matches = false;
+        if(matches)
+            continue;
+        *dumpOutputStream << i << ":\n";
         *dumpOutputStream << l1.size() << " [";
         const char *seperator = "";
         for(auto &v : l1)
