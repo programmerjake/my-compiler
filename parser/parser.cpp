@@ -186,6 +186,13 @@ private:
             tokenizer.readNext();
             return node;
         }
+        case TokenType::Null:
+        {
+            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(std::make_shared<ValueNullPointer>(context));
+            currentBasicBlock->instructions.push_back(node);
+            tokenizer.readNext();
+            return node;
+        }
         default:
             throw ParseError("expected (, id, true, or false");
         }
@@ -207,7 +214,7 @@ private:
                 std::shared_ptr<SSANode> &node = symbol->nodes[currentBasicBlock];
                 if(node == nullptr)
                     throw std::logic_error("old node was null in assign");
-                if(newNode->type != node->type)
+                if(newNode->type != symbol->type)
                     throw ParseError("types don't match for =");
                 node = newNode;
                 return node;
@@ -255,7 +262,7 @@ private:
         }
     }
 
-    std::shared_ptr<TypeNode> constantVolatileType()
+    std::function<std::shared_ptr<TypeNode>(std::shared_ptr<TypeNode>)> parseTypeQualifier()
     {
         bool isConstant = false;
         bool isVolatile = false;
@@ -278,17 +285,62 @@ private:
             else
                 break;
         }
-        std::shared_ptr<TypeNode> retval = topLevelType();
-        if(isVolatile)
-            retval = retval->toVolatile();
         if(isConstant)
-            retval = retval->toConstant();
+        {
+            if(isVolatile)
+            {
+                return [](std::shared_ptr<TypeNode> node) -> std::shared_ptr<TypeNode>
+                {
+                    return node->toVolatile()->toConstant();
+                };
+            }
+            else
+            {
+                return [](std::shared_ptr<TypeNode> node) -> std::shared_ptr<TypeNode>
+                {
+                    return node->toConstant();
+                };
+            }
+        }
+        else
+        {
+            if(isVolatile)
+            {
+                return [](std::shared_ptr<TypeNode> node) -> std::shared_ptr<TypeNode>
+                {
+                    return node->toVolatile();
+                };
+            }
+            else
+            {
+                return nullptr;
+            }
+        }
+    }
+
+    std::shared_ptr<TypeNode> pointerType()
+    {
+        std::function<std::shared_ptr<TypeNode>(std::shared_ptr<TypeNode>)> currentQualifier = parseTypeQualifier();
+        std::shared_ptr<TypeNode> retval = topLevelType();
+        if(currentQualifier)
+            retval = currentQualifier(retval);
+        currentQualifier = parseTypeQualifier();
+        if(currentQualifier)
+            retval = currentQualifier(retval);
+        while(tokenizer.tokenType == TokenType::Star)
+        {
+            retval = TypePointer::make(retval);
+            tokenizer.readNext();
+            currentQualifier = parseTypeQualifier();
+            if(currentQualifier)
+                retval = currentQualifier(retval);
+        }
         return retval;
     }
 
     std::shared_ptr<TypeNode> type()
     {
-        return constantVolatileType();
+        return pointerType();
     }
 
     void declaration(TokenType terminatingToken = TokenType::Semicolon)

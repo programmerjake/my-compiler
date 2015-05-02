@@ -60,7 +60,7 @@ std::string getSourceCode()
     return
 R"(for(boolean x = true, y = true; y; y = x, x = false)
 {
-
+    void * a = null;
 }
 )";
 }

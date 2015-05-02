@@ -24,6 +24,7 @@
 #include <cctype>
 #include "../parser/parser.h"
 #include <iostream>
+#include <vector>
 
 enum class TokenType
 {
@@ -73,19 +74,21 @@ class Tokenizer final
 private:
     std::istream &is;
     bool dumpCode;
-    int putBackCharacter = EOF;
+    std::vector<char> putBackCharacters;
     int peek()
     {
-        if(putBackCharacter != EOF)
-            return putBackCharacter;
+        if(!putBackCharacters.empty())
+        {
+            return putBackCharacters.back();
+        }
         return is.peek();
     }
     int get()
     {
-        if(putBackCharacter != EOF)
+        if(!putBackCharacters.empty())
         {
-            int retval = putBackCharacter;
-            putBackCharacter = EOF;
+            int retval = putBackCharacters.back();
+            putBackCharacters.pop_back();
             return retval;
         }
         if(dumpCode)
@@ -94,7 +97,7 @@ private:
     }
     void putBack(int ch)
     {
-        putBackCharacter = ch;
+        putBackCharacters.push_back(static_cast<char>(ch));
     }
     static int compareCaseInsensitive(std::string a, std::string b)
     {
@@ -213,13 +216,57 @@ public:
 #undef TOKEN_DEF_SPECIAL
             return;
         }
+        struct SymbolStruct final
+        {
+            std::string symbol;
+            TokenType type;
+        };
+        static const SymbolStruct symbols[] =
+        {
 #define TOKEN_DEF_WORD(a)
-#define TOKEN_DEF_SYMBOL(a,b) if(peek() == b[0]) {get(); tokenValue = b; tokenType = TokenType::a; return;}
+#define TOKEN_DEF_SYMBOL(a,b) {b, TokenType::a},
 #define TOKEN_DEF_SPECIAL(a,b,c)
 #include "token_names.h"
 #undef TOKEN_DEF_WORD
 #undef TOKEN_DEF_SYMBOL
 #undef TOKEN_DEF_SPECIAL
+        };
+        tokenValue = "";
+        tokenValue += static_cast<char>(get());
+        for(;;)
+        {
+            std::size_t matchCount = 0;
+            bool lastWasExactMatch = false;
+            for(SymbolStruct symbol : symbols)
+            {
+                if(symbol.symbol.size() < tokenValue.size())
+                    break;
+                if(symbol.symbol.substr(0, tokenValue.size()) == tokenValue)
+                {
+                    matchCount++;
+                    tokenType = symbol.type;
+                    lastWasExactMatch = symbol.symbol == tokenValue;
+                }
+            }
+            if(matchCount == 1 && lastWasExactMatch)
+                return;
+            if(matchCount == 0)
+            {
+                for(putBack(tokenValue.back()), tokenValue.erase(tokenValue.size() - 1); tokenValue.size() >= 1; putBack(tokenValue.back()), tokenValue.erase(tokenValue.size() - 1))
+                {
+                    for(SymbolStruct symbol : symbols)
+                    {
+                        if(symbol.symbol == tokenValue)
+                        {
+                            tokenType = symbol.type;
+                            return;
+                        }
+                    }
+                }
+                break;
+            }
+            tokenValue += static_cast<char>(get());
+        }
         throw ParseError("invalid character");
     }
 };
