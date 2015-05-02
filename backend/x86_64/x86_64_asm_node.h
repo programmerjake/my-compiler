@@ -139,6 +139,31 @@ public:
             }
             return retval;
         }
+        std::uint64_t getSpillSize() const
+        {
+            if(float64 || int64)
+                return 8;
+            if(float32 || int32)
+                return 4;
+            if(int16)
+                return 2;
+            if(int8)
+                return 1;
+            throw std::logic_error("getSpillSize called on X86_64AsmRegister::PhysicalRegisterKindMask::None()");
+        }
+        std::uint64_t getSpillAlignment() const
+        {
+            return getSpillSize();
+        }
+        std::uint64_t createSpillLocation(std::uint64_t &localsSize) const
+        {
+            std::uint64_t spillSize = getSpillSize();
+            std::uint64_t spillAlignment = getSpillAlignment();
+            localsSize += ((spillAlignment - localsSize % spillAlignment) % spillAlignment);
+            std::uint64_t retval = localsSize;
+            localsSize += spillSize;
+            return retval;
+        }
     };
     const PhysicalRegisterKindMask physicalRegisterKindMask;
 private:
@@ -279,6 +304,21 @@ public:
             }
         }
         return *retval;
+    }
+    static std::shared_ptr<X86_64AsmRegister> getPhysicalRegister(CompilerContext *context, std::string name)
+    {
+        auto registerMap = context->getValue<std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>>>();
+        if(registerMap == nullptr)
+        {
+            registerMap = std::make_shared<std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>>>();
+            context->setValue<std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>>>(registerMap);
+            const std::vector<std::shared_ptr<X86_64AsmRegister>> &physicalRegisters = getPhysicalRegisters(context);
+            for(std::shared_ptr<X86_64AsmRegister> r : physicalRegisters)
+            {
+                registerMap->emplace(r->name, r);
+            }
+        }
+        return registerMap->at(name);
     }
 };
 
@@ -449,6 +489,8 @@ class X86_64AsmNodeMove;
 class X86_64AsmNodeLoadConstant;
 class X86_64AsmNodeLoad;
 class X86_64AsmNodeStore;
+class X86_64AsmNodeLoadLocal;
+class X86_64AsmNodeStoreLocal;
 
 class X86_64AsmNodeVisitor
 {
@@ -459,6 +501,8 @@ public:
     virtual void visitX86_64AsmNodeLoadConstant(std::shared_ptr<X86_64AsmNodeLoadConstant> node) = 0;
     virtual void visitX86_64AsmNodeLoad(std::shared_ptr<X86_64AsmNodeLoad> node) = 0;
     virtual void visitX86_64AsmNodeStore(std::shared_ptr<X86_64AsmNodeStore> node) = 0;
+    virtual void visitX86_64AsmNodeLoadLocal(std::shared_ptr<X86_64AsmNodeLoadLocal> node) = 0;
+    virtual void visitX86_64AsmNodeStoreLocal(std::shared_ptr<X86_64AsmNodeStoreLocal> node) = 0;
 };
 
 class X86_64AsmNodeJump final : public X86_64AsmControlTransfer
@@ -690,6 +734,66 @@ public:
             address = newRegister;
         if(dest == originalRegister)
             dest = newRegister;
+    }
+};
+
+class X86_64AsmNodeLoadLocal final : public X86_64AsmNode
+{
+public:
+    std::shared_ptr<X86_64AsmRegister> dest;
+    std::uint64_t start; /// byte count into local variables
+    explicit X86_64AsmNodeLoadLocal(std::shared_ptr<X86_64AsmRegister> dest, std::uint64_t start)
+        : X86_64AsmNode(dest->context), dest(dest), start(start)
+    {
+    }
+    virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> inputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86_64AsmRegister>>{X86_64AsmRegister::getPhysicalRegister(context, "rbp")};
+    }
+    virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> outputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86_64AsmRegister>>{dest};
+    }
+    virtual void visit(X86_64AsmNodeVisitor &visitor) override
+    {
+        visitor.visitX86_64AsmNodeLoadLocal(std::static_pointer_cast<X86_64AsmNodeLoadLocal>(shared_from_this()));
+    }
+    virtual void replaceRegister(std::shared_ptr<X86_64AsmRegister> originalRegister, std::shared_ptr<X86_64AsmRegister> newRegister) override
+    {
+        if(dest == originalRegister)
+            dest = newRegister;
+    }
+};
+
+class X86_64AsmNodeStoreLocal final : public X86_64AsmNode
+{
+public:
+    std::uint64_t start; /// byte count into local variables
+    std::shared_ptr<X86_64AsmRegister> value;
+    explicit X86_64AsmNodeStoreLocal(std::uint64_t start, std::shared_ptr<X86_64AsmRegister> value)
+        : X86_64AsmNode(value->context), start(start), value(value)
+    {
+    }
+    virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> inputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86_64AsmRegister>>{X86_64AsmRegister::getPhysicalRegister(context, "rbp"), value};
+    }
+    virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> outputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86_64AsmRegister>>{};
+    }
+    virtual void visit(X86_64AsmNodeVisitor &visitor) override
+    {
+        visitor.visitX86_64AsmNodeStoreLocal(std::static_pointer_cast<X86_64AsmNodeStoreLocal>(shared_from_this()));
+    }
+    virtual bool hasSideEffects() const override
+    {
+        return true;
+    }
+    virtual void replaceRegister(std::shared_ptr<X86_64AsmRegister> originalRegister, std::shared_ptr<X86_64AsmRegister> newRegister) override
+    {
+        if(value == originalRegister)
+            value = newRegister;
     }
 };
 

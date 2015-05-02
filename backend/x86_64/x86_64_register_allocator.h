@@ -34,13 +34,24 @@ private:
     struct LiveRangeData final
     {
         std::unordered_set<std::shared_ptr<LiveRangeData>> intersectingLiveRanges;
+        std::shared_ptr<ValueNode> constantValue = nullptr;
+        bool isConstant = true;
         const std::shared_ptr<X86_64AsmRegister> originalRegister;
         std::shared_ptr<X86_64AsmRegister> allocatedRegister;
         std::unordered_set<std::shared_ptr<LiveRangeData>> combinableLiveRanges;
         typedef typename X86_64AsmBasicBlock::InstructionList::iterator InstructionIterator;
-        std::vector<InstructionIterator> spillLoadPoints;
-        std::vector<InstructionIterator> spillStorePoints;
-        std::vector<std::pair<InstructionIterator, InstructionIterator>> liveRanges;
+        std::vector<std::pair<std::shared_ptr<X86_64AsmBasicBlock>, InstructionIterator>> spillLoadPoints;
+        std::vector<std::pair<std::shared_ptr<X86_64AsmBasicBlock>, InstructionIterator>> spillStorePoints;
+        struct LiveRange final
+        {
+            std::shared_ptr<X86_64AsmBasicBlock> block;
+            InstructionIterator start, end; // defining instruction is start[-1], last using instruction is end[0]
+            LiveRange(std::shared_ptr<X86_64AsmBasicBlock> block, InstructionIterator start, InstructionIterator end)
+                : block(block), start(start), end(end)
+            {
+            }
+        };
+        std::vector<LiveRange> liveRanges;
         explicit LiveRangeData(std::shared_ptr<X86_64AsmRegister> originalRegister)
             : originalRegister(originalRegister)
         {
@@ -86,20 +97,27 @@ private:
             {
                 std::shared_ptr<X86_64AsmNode> node = *--i;
                 bool isMove = dynamic_cast<const X86_64AsmNodeMove *>(node.get()) != nullptr;
+                std::shared_ptr<ValueNode> constantValue = nullptr;
+                if(const X86_64AsmNodeLoadConstant *loadNode = dynamic_cast<const X86_64AsmNodeLoadConstant *>(node.get()))
+                    constantValue = loadNode->value;
                 currentMoveRegisters.clear();
                 for(std::shared_ptr<X86_64AsmRegister> r : node->outputSet())
                 {
                     std::shared_ptr<LiveRangeData> liveRange = getOrMakeLiveRange(registerToLiveRangeMap, r, liveRanges);
+                    if(constantValue != nullptr && liveRange->isConstant && (liveRange->constantValue == nullptr || *liveRange->constantValue == *constantValue))
+                        liveRange->constantValue = constantValue;
+                    else
+                        liveRange->isConstant = false;
                     currentlyLiveRegisters.erase(r);
                     auto iter = liveRangeEnds.find(r);
                     if(iter != liveRangeEnds.end())
                     {
-                        liveRange->liveRanges.emplace_back(i + 1, std::get<1>(*iter));
+                        liveRange->liveRanges.emplace_back(block, i + 1, std::get<1>(*iter));
                         liveRangeEnds.erase(iter);
                     }
                     if(isMove)
                         currentMoveRegisters.push_back(r);
-                    liveRange->spillStorePoints.push_back(i);
+                    liveRange->spillStorePoints.emplace_back(block, i);
                 }
                 for(std::shared_ptr<X86_64AsmRegister> r : node->inputSet())
                 {
@@ -109,7 +127,7 @@ private:
                         currentMoveRegisters.push_back(r);
                     if(liveRangeEnds.count(r) == 0)
                         liveRangeEnds[r] = i;
-                    liveRange->spillLoadPoints.push_back(i);
+                    liveRange->spillLoadPoints.emplace_back(block, i);
                 }
                 if(isMove)
                 {
@@ -131,7 +149,7 @@ private:
             for(auto p : liveRangeEnds)
             {
                 std::shared_ptr<LiveRangeData> liveRange = getOrMakeLiveRange(registerToLiveRangeMap, std::get<0>(p), liveRanges);
-                liveRange->liveRanges.emplace_back(block->instructions.begin(), std::get<1>(p));
+                liveRange->liveRanges.emplace_back(block, block->instructions.begin(), std::get<1>(p));
             }
         }
     }
@@ -221,15 +239,15 @@ public:
                     intersectingRegisters.insert(intersectingLiveRange->originalRegister);
                     intersectingRegisters.insert(intersectingLiveRange->allocatedRegister);
                 }
-                for(std::shared_ptr<LiveRangeData> prefferedLiveRange : liveRange->combinableLiveRanges)
+                for(std::shared_ptr<LiveRangeData> preferredLiveRange : liveRange->combinableLiveRanges)
                 {
-                    preferredRegisters.insert(prefferedLiveRange->originalRegister);
-                    preferredRegisters.insert(prefferedLiveRange->allocatedRegister);
+                    preferredRegisters.insert(preferredLiveRange->originalRegister);
+                    preferredRegisters.insert(preferredLiveRange->allocatedRegister);
                 }
                 std::shared_ptr<X86_64AsmRegister> pickedRegister = nullptr;
                 for(std::shared_ptr<X86_64AsmRegister> r : physicalRegisters)
                 {
-                    if(r->isSpecialPurpose)
+                    if(r->isSpecialPurpose && preferredRegisters.count(r) == 0)
                     {
                         continue;
                     }
@@ -252,7 +270,6 @@ public:
                 if(pickedRegister == nullptr)
                 {
                     spilledLiveRanges.insert(liveRange);
-                    std::cout << "spilling " << liveRange->originalRegister->name << std::endl;
                 }
                 else
                 {
@@ -261,8 +278,70 @@ public:
             }
             if(spilledLiveRanges.empty())
                 break;
-            #warning implement spilling registers
-            throw std::runtime_error("spilling registers not implemented yet");
+            for(std::shared_ptr<LiveRangeData> liveRange : spilledLiveRanges)
+            {
+                std::uint64_t spillLocation = 0;
+                if(!liveRange->isConstant || liveRange->constantValue == nullptr) // if not a constant live range allocate local
+                    spillLocation = liveRange->originalRegister->physicalRegisterKindMask.createSpillLocation(function->localVariablesSize);
+                for(auto p : liveRange->spillLoadPoints)
+                {
+                    std::shared_ptr<X86_64AsmBasicBlock> block = std::get<0>(p);
+                    auto pos = std::get<1>(p);
+                    bool good = false;
+                    for(LiveRangeData::LiveRange r : liveRange->liveRanges)
+                    {
+                        if(r.block != block)
+                            continue;
+                        if(r.end == r.start) // from one instruction to it's immediate successor
+                            continue;
+                        if(pos <= r.end && pos + 1 >= r.start)
+                        {
+                            good = true;
+                            break;
+                        }
+                    }
+                    if(good)
+                    {
+                        if(liveRange->isConstant && liveRange->constantValue)
+                        {
+                            std::shared_ptr<X86_64AsmNode> node = std::make_shared<X86_64AsmNodeLoadConstant>(liveRange->originalRegister, liveRange->constantValue);
+                            block->instructions.insert(pos, node);
+                        }
+                        else
+                        {
+                            std::shared_ptr<X86_64AsmNode> node = std::make_shared<X86_64AsmNodeLoadLocal>(liveRange->originalRegister, spillLocation);
+                            block->instructions.insert(pos, node);
+                        }
+                    }
+                }
+                for(auto p : liveRange->spillStorePoints)
+                {
+                    std::shared_ptr<X86_64AsmBasicBlock> block = std::get<0>(p);
+                    auto pos = std::get<1>(p);
+                    bool good = false;
+                    for(LiveRangeData::LiveRange r : liveRange->liveRanges)
+                    {
+                        if(r.block != block)
+                            continue;
+                        if(r.end == r.start) // from one instruction to it's immediate successor
+                            continue;
+                        if(pos <= r.end && pos + 1 >= r.start)
+                        {
+                            good = true;
+                            break;
+                        }
+                    }
+                    if(good)
+                    {
+                        if(!liveRange->isConstant || liveRange->constantValue == nullptr) // don't store constants
+                        {
+                            std::shared_ptr<X86_64AsmNode> node = std::make_shared<X86_64AsmNodeStoreLocal>(spillLocation, liveRange->originalRegister);
+                            block->instructions.insert(pos + 1, node);
+                        }
+                    }
+                }
+            }
+            X86_64ConstructLivenessInfo().visitX86_64AsmFunction(function);
         }
         for(std::shared_ptr<LiveRangeData> liveRange : liveRanges)
         {

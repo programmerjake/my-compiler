@@ -121,7 +121,7 @@ public:
 class ValueLocalVariablePointer final : public ValueNode
 {
 public:
-    std::uint64_t start; /// byte count into local variables if positive, parameters if negative
+    std::uint64_t start; /// byte count into local variables
     explicit ValueLocalVariablePointer(CompilerContext *context, std::uint64_t start)
         : ValueNode(context, TypePointer::make(TypeVoid::make(context)), false), start(start)
     {

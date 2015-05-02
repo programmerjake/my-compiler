@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include "../../construct_liveness_info.h"
+#include "x86_64_construct_liveness_info.h"
 
 class X86_64ConvertRTLToAsm final : public RTLNodeVisitor
 {
@@ -96,54 +97,7 @@ private:
     }
     static void constructLivenessInfo(std::shared_ptr<X86_64AsmFunction> function)
     {
-        for(std::shared_ptr<X86_64AsmBasicBlock> block : function->blocks)
-        {
-            block->assignedRegisters.clear();
-            block->usedRegistersAtStart.clear();
-            block->liveRegistersAtStart.clear();
-            block->liveRegistersAtEnd.clear();
-            for(auto i = block->instructions.rbegin(); i != block->instructions.rend(); ++i)
-            {
-                for(std::shared_ptr<X86_64AsmRegister> outputRegister : (*i)->outputSet())
-                {
-                    block->usedRegistersAtStart.erase(outputRegister);
-                    block->assignedRegisters.insert(outputRegister);
-                }
-                for(std::shared_ptr<X86_64AsmRegister> inputRegister : (*i)->inputSet())
-                {
-                    block->usedRegistersAtStart.insert(inputRegister);
-                }
-                block->liveRegistersAtStart = block->usedRegistersAtStart;
-            }
-        }
-        bool done = false;
-        while(!done)
-        {
-            done = true;
-            for(std::shared_ptr<X86_64AsmBasicBlock> block : function->blocks)
-            {
-                for(std::shared_ptr<X86_64AsmRegister> r : block->liveRegistersAtEnd)
-                {
-                    if(block->assignedRegisters.count(r) != 0)
-                        continue;
-                    if(std::get<1>(block->liveRegistersAtStart.insert(r)))
-                    {
-                        done = false;
-                    }
-                }
-                for(std::weak_ptr<X86_64AsmBasicBlock> targetW : block->destBlocks)
-                {
-                    std::shared_ptr<X86_64AsmBasicBlock> target = targetW.lock();
-                    for(std::shared_ptr<X86_64AsmRegister> r : target->liveRegistersAtStart)
-                    {
-                        if(std::get<1>(block->liveRegistersAtEnd.insert(r)))
-                        {
-                            done = false;
-                        }
-                    }
-                }
-            }
-        }
+        X86_64ConstructLivenessInfo().visitX86_64AsmFunction(function);
     }
     std::shared_ptr<X86_64AsmFunction> visitRTLFunction(std::shared_ptr<RTLFunction> function)
     {

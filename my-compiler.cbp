@@ -69,6 +69,7 @@
 			<Option target="Debug" />
 			<Option target="Release" />
 		</Unit>
+		<Unit filename="backend/x86_64/x86_64_construct_liveness_info.h" />
 		<Unit filename="backend/x86_64/x86_64_register_allocator.h">
 			<Option target="Debug" />
 			<Option target="Release" />
