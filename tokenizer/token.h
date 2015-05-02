@@ -240,7 +240,7 @@ public:
             for(SymbolStruct symbol : symbols)
             {
                 if(symbol.symbol.size() < tokenValue.size())
-                    break;
+                    continue;
                 if(symbol.symbol.substr(0, tokenValue.size()) == tokenValue)
                 {
                     matchCount++;

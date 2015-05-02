@@ -154,6 +154,61 @@ public:
         currentBlock->instructions.push_back(newNode);
         currentBlock->controlTransferInstruction = newNode;
     }
+    virtual void visitRTLCompare(std::shared_ptr<RTLCompare> node) override
+    {
+        X86_64ConditionType cond;
+        bool isUnsigned = true;
+        if(dynamic_cast<const TypeBoolean *>(node->operandsType->toNonConstant()->toNonVolatile().get()) != nullptr)
+        {
+            isUnsigned = true;
+        }
+        else if(dynamic_cast<const TypePointer *>(node->operandsType->toNonConstant()->toNonVolatile().get()) != nullptr)
+        {
+            isUnsigned = true;
+        }
+        else
+        {
+            throw std::runtime_error("compare not implemented for type");
+        }
+        switch(node->compareOperator)
+        {
+        case RTLCompare::CompareOperator::E:
+            cond = X86_64ConditionType::E;
+            break;
+        case RTLCompare::CompareOperator::G:
+            if(isUnsigned)
+                cond = X86_64ConditionType::A;
+            else
+                cond = X86_64ConditionType::G;
+            break;
+        case RTLCompare::CompareOperator::GE:
+            if(isUnsigned)
+                cond = X86_64ConditionType::AE;
+            else
+                cond = X86_64ConditionType::GE;
+            break;
+        case RTLCompare::CompareOperator::L:
+            if(isUnsigned)
+                cond = X86_64ConditionType::B;
+            else
+                cond = X86_64ConditionType::L;
+            break;
+        case RTLCompare::CompareOperator::LE:
+            if(isUnsigned)
+                cond = X86_64ConditionType::BE;
+            else
+                cond = X86_64ConditionType::LE;
+            break;
+        default: // NE
+            cond = X86_64ConditionType::NE;
+            break;
+        }
+        std::shared_ptr<X86_64AsmNode> newNode = std::make_shared<X86_64AsmNodeCompare>(getOrMakeRegister(node->destRegister, TypeBoolean::make(node->context)),
+                                                                                        getOrMakeRegister(node->lhsRegister, node->operandsType),
+                                                                                        getOrMakeRegister(node->rhsRegister, node->operandsType),
+                                                                                        cond);
+        currentBlock->instructions.push_back(newNode);
+    }
     static std::list<std::shared_ptr<X86_64AsmFunction>> run(const std::list<std::shared_ptr<RTLFunction>> &inputFunctions)
     {
         X86_64ConvertRTLToAsm converter;

@@ -198,6 +198,41 @@ private:
         }
     }
 
+    std::shared_ptr<SSANode> comparisonExpression()
+    {
+        std::shared_ptr<SSANode> retval = topLevelExpression();
+        SSACompare::CompareOperator compareOperator;
+        switch(tokenizer.tokenType)
+        {
+        case TokenType::EqualEqual:
+            compareOperator = SSACompare::CompareOperator::E;
+            break;
+        case TokenType::NotEqual:
+            compareOperator = SSACompare::CompareOperator::NE;
+            break;
+        case TokenType::GreaterEqual:
+            compareOperator = SSACompare::CompareOperator::GE;
+            break;
+        case TokenType::LessEqual:
+            compareOperator = SSACompare::CompareOperator::LE;
+            break;
+        case TokenType::Greater:
+            compareOperator = SSACompare::CompareOperator::G;
+            break;
+        case TokenType::Less:
+            compareOperator = SSACompare::CompareOperator::L;
+            break;
+        default:
+            return retval;
+        }
+        tokenizer.readNext();
+        std::shared_ptr<SSANode> lhs = retval;
+        std::shared_ptr<SSANode> rhs = topLevelExpression();
+        retval = std::make_shared<SSACompare>(lhs, compareOperator, rhs);
+        currentBasicBlock->instructions.push_back(retval);
+        return retval;
+    }
+
     std::shared_ptr<SSANode> assignmentExpression()
     {
         if(tokenizer.tokenType == TokenType::Identifier)
@@ -224,7 +259,7 @@ private:
                 tokenizer.putBack(TokenType::Identifier, name);
             }
         }
-        return topLevelExpression();
+        return comparisonExpression();
     }
 
     std::shared_ptr<SSANode> commaExpression(bool ignoreComma)

@@ -27,6 +27,7 @@ class SSAConstant;
 class SSAMove;
 class SSALoad;
 class SSAStore;
+class SSACompare;
 
 class SSANodeVisitor
 {
@@ -39,6 +40,7 @@ public:
     virtual void visitSSAMove(std::shared_ptr<SSAMove> node) = 0;
     virtual void visitSSALoad(std::shared_ptr<SSALoad> node) = 0;
     virtual void visitSSAStore(std::shared_ptr<SSAStore> node) = 0;
+    virtual void visitSSACompare(std::shared_ptr<SSACompare> node) = 0;
 };
 
 #endif // SSA_VISITOR_H_INCLUDED

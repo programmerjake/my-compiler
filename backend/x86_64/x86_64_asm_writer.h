@@ -118,6 +118,11 @@ public:
         }
         }
     }
+    virtual void visitX86_64AsmNodeCompare(std::shared_ptr<X86_64AsmNodeCompare> node) override
+    {
+        os << "    cmp %" << node->lhs->name << ", %" << node->rhs->name << "\n";
+        os << "    " << X86_64GetSetName(node->conditionType) << " %" << node->dest->name << "\n";
+    }
     virtual void visitX86_64AsmNodeMove(std::shared_ptr<X86_64AsmNodeMove> node) override
     {
         os << "    mov %" << node->dest->name << ", %" << node->source->name << "\n";

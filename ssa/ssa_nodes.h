@@ -25,5 +25,6 @@
 #include "ssa_move.h"
 #include "ssa_control_transfer.h"
 #include "ssa_phi.h"
+#include "ssa_compare.h"
 
 #endif // SSA_NODES_H_INCLUDED

@@ -141,6 +141,7 @@
 			<Option target="Debug" />
 			<Option target="Release" />
 		</Unit>
+		<Unit filename="ssa/ssa_compare.h" />
 		<Unit filename="ssa/ssa_const.h">
 			<Option target="Debug" />
 			<Option target="Release" />

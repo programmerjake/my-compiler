@@ -491,6 +491,7 @@ class X86_64AsmNodeLoad;
 class X86_64AsmNodeStore;
 class X86_64AsmNodeLoadLocal;
 class X86_64AsmNodeStoreLocal;
+class X86_64AsmNodeCompare;
 
 class X86_64AsmNodeVisitor
 {
@@ -503,6 +504,7 @@ public:
     virtual void visitX86_64AsmNodeStore(std::shared_ptr<X86_64AsmNodeStore> node) = 0;
     virtual void visitX86_64AsmNodeLoadLocal(std::shared_ptr<X86_64AsmNodeLoadLocal> node) = 0;
     virtual void visitX86_64AsmNodeStoreLocal(std::shared_ptr<X86_64AsmNodeStoreLocal> node) = 0;
+    virtual void visitX86_64AsmNodeCompare(std::shared_ptr<X86_64AsmNodeCompare> node) = 0;
 };
 
 class X86_64AsmNodeJump final : public X86_64AsmControlTransfer
@@ -642,6 +644,51 @@ inline std::string X86_64GetJmpName(X86_64ConditionType condition)
     return "";
 }
 
+inline std::string X86_64GetSetName(X86_64ConditionType condition)
+{
+    switch(condition)
+    {
+    case X86_64ConditionType::Z:
+        return "setz";
+    case X86_64ConditionType::NZ:
+        return "setnz";
+    case X86_64ConditionType::S:
+        return "sets";
+    case X86_64ConditionType::NS:
+        return "setns";
+    case X86_64ConditionType::O:
+        return "seto";
+    case X86_64ConditionType::NO:
+        return "setno";
+    case X86_64ConditionType::C:
+        return "setc";
+    case X86_64ConditionType::NC:
+        return "setnc";
+    case X86_64ConditionType::B:
+        return "setb";
+    case X86_64ConditionType::BE:
+        return "setbe";
+    case X86_64ConditionType::AE:
+        return "setae";
+    case X86_64ConditionType::A:
+        return "seta";
+    case X86_64ConditionType::L:
+        return "setl";
+    case X86_64ConditionType::LE:
+        return "setle";
+    case X86_64ConditionType::GE:
+        return "setge";
+    case X86_64ConditionType::G:
+        return "setg";
+    case X86_64ConditionType::E:
+        return "sete";
+    case X86_64ConditionType::NE:
+        return "setne";
+    }
+    assert(false);
+    return "";
+}
+
 class X86_64AsmNodeCompareAgainstConstantAndJump final : public X86_64AsmControlTransfer
 {
 public:
@@ -704,6 +751,40 @@ public:
             source = newRegister;
         if(dest == originalRegister)
             dest = newRegister;
+    }
+};
+
+class X86_64AsmNodeCompare final : public X86_64AsmNode
+{
+public:
+    std::shared_ptr<X86_64AsmRegister> dest;
+    std::shared_ptr<X86_64AsmRegister> lhs;
+    std::shared_ptr<X86_64AsmRegister> rhs;
+    X86_64ConditionType conditionType;
+    explicit X86_64AsmNodeCompare(std::shared_ptr<X86_64AsmRegister> dest, std::shared_ptr<X86_64AsmRegister> lhs, std::shared_ptr<X86_64AsmRegister> rhs, X86_64ConditionType conditionType)
+        : X86_64AsmNode(dest->context), dest(dest), lhs(lhs), rhs(rhs), conditionType(conditionType)
+    {
+    }
+    virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> inputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86_64AsmRegister>>{lhs, rhs};
+    }
+    virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> outputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86_64AsmRegister>>{dest};
+    }
+    virtual void visit(X86_64AsmNodeVisitor &visitor) override
+    {
+        visitor.visitX86_64AsmNodeCompare(std::static_pointer_cast<X86_64AsmNodeCompare>(shared_from_this()));
+    }
+    virtual void replaceRegister(std::shared_ptr<X86_64AsmRegister> originalRegister, std::shared_ptr<X86_64AsmRegister> newRegister) override
+    {
+        if(dest == originalRegister)
+            dest = newRegister;
+        if(lhs == originalRegister)
+            lhs = newRegister;
+        if(rhs == originalRegister)
+            rhs = newRegister;
     }
 };
 

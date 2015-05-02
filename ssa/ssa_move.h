@@ -96,7 +96,7 @@ public:
     }
     virtual std::list<std::shared_ptr<SSANode>> getInputs() const override
     {
-        return std::list<std::shared_ptr<SSANode>>{address.lock()};
+        return std::list<std::shared_ptr<SSANode>>{address.lock(), value.lock()};
     }
     virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
     {

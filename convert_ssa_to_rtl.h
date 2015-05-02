@@ -121,6 +121,11 @@ public:
         std::shared_ptr<RTLNode> newNode = std::make_shared<RTLStore>(registerMap[node->address.lock()], registerMap[node->value.lock()], node->address.lock()->type);
         currentlyGeneratingBasicBlock->instructions.push_back(newNode);
     }
+    virtual void visitSSACompare(std::shared_ptr<SSACompare> node) override
+    {
+        std::shared_ptr<RTLNode> newNode = std::make_shared<RTLCompare>(registerMap[node], registerMap[node->lhs.lock()], registerMap[node->rhs.lock()], node->compareOperator, node->lhs.lock()->type);
+        currentlyGeneratingBasicBlock->instructions.push_back(newNode);
+    }
 private:
     void visitSSANode(std::shared_ptr<SSANode> node)
     {

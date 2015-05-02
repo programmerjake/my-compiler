@@ -26,6 +26,7 @@
 #include <list>
 #include <string>
 #include <unordered_set>
+#include "../ssa/ssa_compare.h"
 
 class RTLRegister final : public std::enable_shared_from_this<RTLRegister>
 {
@@ -103,6 +104,7 @@ class RTLLoad;
 class RTLStore;
 class RTLUnconditionalJump;
 class RTLConditionalJump;
+class RTLCompare;
 
 class RTLNodeVisitor
 {
@@ -113,6 +115,7 @@ public:
     virtual void visitRTLLoad(std::shared_ptr<RTLLoad> node) = 0;
     virtual void visitRTLStore(std::shared_ptr<RTLStore> node) = 0;
     virtual void visitRTLConditionalJump(std::shared_ptr<RTLConditionalJump> node) = 0;
+    virtual void visitRTLCompare(std::shared_ptr<RTLCompare> node) = 0;
 };
 
 class RTLControlTransfer : public RTLNode
@@ -273,6 +276,33 @@ public:
     virtual bool hasSideEffects() const override
     {
         return true;
+    }
+};
+
+class RTLCompare final : public RTLNode
+{
+public:
+    typedef SSACompare::CompareOperator CompareOperator;
+    std::shared_ptr<RTLRegister> destRegister;
+    std::shared_ptr<RTLRegister> lhsRegister;
+    std::shared_ptr<RTLRegister> rhsRegister;
+    CompareOperator compareOperator;
+    std::shared_ptr<TypeNode> operandsType;
+    RTLCompare(std::shared_ptr<RTLRegister> destRegister, std::shared_ptr<RTLRegister> lhsRegister, std::shared_ptr<RTLRegister> rhsRegister, CompareOperator compareOperator, std::shared_ptr<TypeNode> operandsType)
+        : RTLNode(destRegister->context), destRegister(destRegister), lhsRegister(lhsRegister), rhsRegister(rhsRegister), compareOperator(compareOperator), operandsType(operandsType)
+    {
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getOutputRegisters() const override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>>{std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>{destRegister, TypeBoolean::make(context)}};
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getInputRegisters() const override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>>{std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>{lhsRegister, operandsType}, std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>{rhsRegister, operandsType}};
+    }
+    virtual void visit(RTLNodeVisitor &visitor) override
+    {
+        visitor.visitRTLCompare(std::static_pointer_cast<RTLCompare>(shared_from_this()));
     }
 };
 
