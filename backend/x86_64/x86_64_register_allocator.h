@@ -237,7 +237,21 @@ public:
                 for(std::shared_ptr<LiveRangeData> intersectingLiveRange : liveRange->intersectingLiveRanges)
                 {
                     intersectingRegisters.insert(intersectingLiveRange->originalRegister);
+                    if(intersectingLiveRange->originalRegister && intersectingLiveRange->originalRegister->registerType == X86_64AsmRegister::RegisterType::Physical)
+                    {
+                        for(std::shared_ptr<X86_64AsmRegister> r : intersectingLiveRange->originalRegister->getPhysicalRegisterInterferenceSet())
+                        {
+                            intersectingRegisters.insert(r);
+                        }
+                    }
                     intersectingRegisters.insert(intersectingLiveRange->allocatedRegister);
+                    if(intersectingLiveRange->allocatedRegister && intersectingLiveRange->allocatedRegister->registerType == X86_64AsmRegister::RegisterType::Physical)
+                    {
+                        for(std::shared_ptr<X86_64AsmRegister> r : intersectingLiveRange->allocatedRegister->getPhysicalRegisterInterferenceSet())
+                        {
+                            intersectingRegisters.insert(r);
+                        }
+                    }
                 }
                 for(std::shared_ptr<LiveRangeData> preferredLiveRange : liveRange->combinableLiveRanges)
                 {
