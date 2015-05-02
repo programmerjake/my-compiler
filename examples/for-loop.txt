@@ -1,0 +1,3 @@
+for(boolean a = true, b = true, c = true; c; c = b, b = a, a = false)
+{
+}

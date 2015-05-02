@@ -102,7 +102,7 @@ public:
             std::shared_ptr<ValueBoolean> rhs = std::dynamic_pointer_cast<ValueBoolean>(node->rhs);
             if(rhs == nullptr)
                 throw NotImplementedException("type not implemented");
-            os << "    cmp " << node->lhs->name << ", " << (rhs->value ? "1" : "0") << "\n";
+            os << "    cmp %" << node->lhs->name << ", " << (rhs->value ? "1" : "0") << "\n";
             if(reversed)
                 os << "    " << X86_64GetJmpName(X86_64InvertCondition(node->conditionType)) << " " << getBlockLabel(node->falseTarget.lock()) << "\n";
             else
@@ -120,36 +120,36 @@ public:
     }
     virtual void visitX86_64AsmNodeMove(std::shared_ptr<X86_64AsmNodeMove> node) override
     {
-        os << "    mov " << node->dest->name << ", " << node->source->name << "\n";
+        os << "    mov %" << node->dest->name << ", %" << node->source->name << "\n";
     }
     virtual void visitX86_64AsmNodeLoadConstant(std::shared_ptr<X86_64AsmNodeLoadConstant> node) override
     {
         if(std::shared_ptr<ValueBoolean> valueBoolean = std::dynamic_pointer_cast<ValueBoolean>(node->value))
-            os << "    mov " << node->dest->name << ", " << (valueBoolean->value ? "1" : "0") << "\n";
+            os << "    mov %" << node->dest->name << ", " << (valueBoolean->value ? "1" : "0") << "\n";
         else if(std::shared_ptr<ValueLocalVariablePointer> valueLocalVariablePointer = std::dynamic_pointer_cast<ValueLocalVariablePointer>(node->value))
         {
-            os << "    mov " << node->dest->name << ", rbp - " << (alignedLocalsSize - valueLocalVariablePointer->start) << "\n";
+            os << "    lea %" << node->dest->name << ", [%rbp - " << (alignedLocalsSize - valueLocalVariablePointer->start) << "]\n";
         }
         else if(std::shared_ptr<ValueNullPointer> valueNullPointer = std::dynamic_pointer_cast<ValueNullPointer>(node->value))
-            os << "    mov " << node->dest->name << ", 0\n";
+            os << "    mov %" << node->dest->name << ", 0\n";
         else
             throw NotImplementedException("type not implemented");
     }
     virtual void visitX86_64AsmNodeLoad(std::shared_ptr<X86_64AsmNodeLoad> node) override
     {
-        os << "    mov " << node->dest->name << ", [" << node->address->name << "]\n";
+        os << "    mov %" << node->dest->name << ", [%" << node->address->name << "]\n";
     }
     virtual void visitX86_64AsmNodeStore(std::shared_ptr<X86_64AsmNodeStore> node) override
     {
-        os << "    mov [" << node->address->name << "], " << node->value->name << "\n";
+        os << "    mov [%" << node->address->name << "], %" << node->value->name << "\n";
     }
     virtual void visitX86_64AsmNodeLoadLocal(std::shared_ptr<X86_64AsmNodeLoadLocal> node) override
     {
-        os << "    mov " << node->dest->name << ", [rbp - " << (alignedLocalsSize - node->start) << "]\n";
+        os << "    mov %" << node->dest->name << ", [%rbp - " << (alignedLocalsSize - node->start) << "]\n";
     }
     virtual void visitX86_64AsmNodeStoreLocal(std::shared_ptr<X86_64AsmNodeStoreLocal> node) override
     {
-        os << "    mov [rbp - " << (alignedLocalsSize - node->start) << "], " << node->value->name << "\n";
+        os << "    mov [%rbp - " << (alignedLocalsSize - node->start) << "], %" << node->value->name << "\n";
     }
 private:
     void visitX86_64AsmBasicBlock(std::shared_ptr<X86_64AsmBasicBlock> block, bool writeAlign)
@@ -178,8 +178,8 @@ private:
             }
             if(block->controlTransferInstruction == nullptr) // final block
             {
-                os << "    mov rsp, rbp\n";
-                os << "    pop rbp\n";
+                os << "    mov %rsp, %rbp\n";
+                os << "    pop %rbp\n";
                 os << "    ret\n";
             }
             os << "\n";
@@ -194,12 +194,12 @@ private:
         os << "    .align 16, 0x90\n";
         os << "    .type main, @function\n";
         os << "main:\n";
-        os << "    push rbp\n";
-        os << "    mov rbp, rsp\n";
+        os << "    push %rbp\n";
+        os << "    mov %rbp, %rsp\n";
         const std::uint64_t stackAlign = 16;
         alignedLocalsSize = ((function->localVariablesSize + (stackAlign - 1)) / stackAlign) * stackAlign;
         if(alignedLocalsSize != 0)
-            os << "    sub rsp, " << alignedLocalsSize << "\n";
+            os << "    sub %rsp, " << alignedLocalsSize << "\n";
         os << "\n";
         std::vector<std::shared_ptr<X86_64AsmBasicBlock>> blocks;
         blocks.reserve(function->blocks.size());
@@ -237,7 +237,7 @@ public:
     static void run(std::ostream &os, const std::list<std::shared_ptr<X86_64AsmFunction>> &functions)
     {
         X86_64AsmWriter_GAS_Intel writer(os);
-        os << ".intel_syntax\n\n";
+        os << ".intel_syntax prefix\n\n";
         for(std::shared_ptr<X86_64AsmFunction> function : functions)
         {
             writer.visitX86_64AsmFunction(function);
