@@ -33,8 +33,9 @@ struct Symbol final
     std::string name;
     std::unordered_map<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSANode>> nodes;
     std::shared_ptr<TypeNode> type;
-    Symbol(std::string name, std::shared_ptr<TypeNode> type)
-        : name(name), type(type)
+    SpillLocation spillLocation;
+    Symbol(std::string name, std::shared_ptr<TypeNode> type, SpillLocation spillLocation)
+        : name(name), type(type), spillLocation(spillLocation)
     {
     }
 };
@@ -111,7 +112,7 @@ private:
                     symbol->nodes[currentBasicBlock] = std::get<1>(*symbol->nodes.begin());
                     continue;
                 }
-                std::shared_ptr<SSAPhi> phi = std::make_shared<SSAPhi>(symbol->type);
+                std::shared_ptr<SSAPhi> phi = std::make_shared<SSAPhi>(symbol->type, symbol->spillLocation);
                 std::size_t size = 0;
                 bool hasPatch = false, allNodesEqual = true;
                 std::shared_ptr<SSANode> node;
@@ -174,21 +175,21 @@ private:
         }
         case TokenType::False:
         {
-            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, false));
+            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, false), nullptr);
             currentBasicBlock->instructions.push_back(node);
             tokenizer.readNext();
             return node;
         }
         case TokenType::True:
         {
-            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, true));
+            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, true), nullptr);
             currentBasicBlock->instructions.push_back(node);
             tokenizer.readNext();
             return node;
         }
         case TokenType::Null:
         {
-            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(std::make_shared<ValueNullPointer>(context));
+            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(std::make_shared<ValueNullPointer>(context), nullptr);
             currentBasicBlock->instructions.push_back(node);
             tokenizer.readNext();
             return node;
@@ -228,7 +229,7 @@ private:
         tokenizer.readNext();
         std::shared_ptr<SSANode> lhs = retval;
         std::shared_ptr<SSANode> rhs = topLevelExpression();
-        retval = std::make_shared<SSACompare>(lhs, compareOperator, rhs);
+        retval = std::make_shared<SSACompare>(lhs, compareOperator, rhs, nullptr);
         currentBasicBlock->instructions.push_back(retval);
         return retval;
     }
@@ -396,9 +397,9 @@ private:
             std::shared_ptr<ValueNode> initialValue = theType->makeDefaultValue();
             if(initialValue == nullptr)
                 throw ParseError("invalid type for variable");
-            std::shared_ptr<Symbol> symbol = std::make_shared<Symbol>(name, theType);
+            std::shared_ptr<Symbol> symbol = std::make_shared<Symbol>(name, theType, nullptr);
             addSymbolToTopSymbolTable(symbol);
-            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(initialValue);
+            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(initialValue, symbol->spillLocation);
             symbol->nodes[currentBasicBlock] = node;
             currentBasicBlock->instructions.push_back(node);
             expression(true);

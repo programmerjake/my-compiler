@@ -203,7 +203,7 @@ public:
                     assert(fixupBlock->destBlocks.front().lock() == block);
                     auto insertPosition = fixupBlock->instructions.end();
                     --insertPosition; // skip control transfer instruction
-                    std::shared_ptr<SSANode> newNode = std::make_shared<SSAMove>(i.node.lock());
+                    std::shared_ptr<SSANode> newNode = std::make_shared<SSAMove>(i.node.lock(), phi->spillLocation);
                     i.node = newNode;
                     fixupBlock->instructions.insert(insertPosition, newNode);
                 }
@@ -257,7 +257,7 @@ public:
                 std::shared_ptr<RTLRegister> &r = nodeSetToRegisterMap[nodeSetMap[node]];
                 if(r == nullptr)
                 {
-                    r = std::make_shared<RTLRegister>(function->context, makeVirtualRegisterName());
+                    r = std::make_shared<RTLRegister>(function->context, makeVirtualRegisterName(), node->spillLocation);
                 }
                 registerMap[node] = r;
                 reverseRegisterMap[r].insert(node);

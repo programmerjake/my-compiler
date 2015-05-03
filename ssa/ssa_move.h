@@ -26,8 +26,8 @@ class SSAMove final : public SSANode
 {
 public:
     std::weak_ptr<SSANode> source;
-    explicit SSAMove(std::shared_ptr<SSANode> source)
-        : SSANode(source->context, source->type), source(source)
+    explicit SSAMove(std::shared_ptr<SSANode> source, SpillLocation spillLocation)
+        : SSANode(source->context, source->type, spillLocation), source(source)
     {
     }
     virtual void visit(SSANodeVisitor &visitor) override
@@ -55,8 +55,8 @@ class SSALoad final : public SSANode
 {
 public:
     std::weak_ptr<SSANode> address;
-    explicit SSALoad(std::shared_ptr<SSANode> address)
-        : SSANode(address->context, address->type->dereference()), address(address)
+    explicit SSALoad(std::shared_ptr<SSANode> address, SpillLocation spillLocation)
+        : SSANode(address->context, address->type->dereference(), spillLocation), address(address)
     {
     }
     virtual void visit(SSANodeVisitor &visitor) override
@@ -83,7 +83,7 @@ public:
     std::weak_ptr<SSANode> address;
     std::weak_ptr<SSANode> value;
     SSAStore(std::shared_ptr<SSANode> address, std::shared_ptr<SSANode> value)
-        : SSANode(address->context, TypeVoid::make(address->context)), address(address), value(value)
+        : SSANode(address->context, TypeVoid::make(address->context), nullptr), address(address), value(value)
     {
     }
     virtual void visit(SSANodeVisitor &visitor) override

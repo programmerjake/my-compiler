@@ -59,6 +59,17 @@ private:
     Phase phase = Phase::CreateBlockJoinMap;
     std::shared_ptr<X86_64AsmBasicBlock> currentBlock, nextBlock;
     std::uint64_t alignedLocalsSize = 0;
+    struct SavedRegister final
+    {
+        std::shared_ptr<X86_64AsmRegister> r;
+        std::uint64_t saveLocationStart;
+        bool isFloatingPoint;
+        SavedRegister(std::shared_ptr<X86_64AsmRegister> r, std::uint64_t saveLocationStart, bool isFloatingPoint)
+            : r(r), saveLocationStart(saveLocationStart), isFloatingPoint(isFloatingPoint)
+        {
+        }
+    };
+    std::list<SavedRegister> savedRegisters;
 public:
     virtual void visitX86_64AsmNodeJump(std::shared_ptr<X86_64AsmNodeJump> node) override
     {
@@ -183,6 +194,17 @@ private:
             }
             if(block->controlTransferInstruction == nullptr) // final block
             {
+                for(const SavedRegister &r : savedRegisters)
+                {
+                    if(r.isFloatingPoint)
+                    {
+                        os << "    movaps %" << r.r->name << ", [%rbp - " << (alignedLocalsSize - r.saveLocationStart) << "]\n";
+                    }
+                    else
+                    {
+                        os << "    mov %" << r.r->name << ", [%rbp - " << (alignedLocalsSize - r.saveLocationStart) << "]\n";
+                    }
+                }
                 os << "    mov %rsp, %rbp\n";
                 os << "    pop %rbp\n";
                 os << "    ret\n";
@@ -201,10 +223,41 @@ private:
         os << "main:\n";
         os << "    push %rbp\n";
         os << "    mov %rbp, %rsp\n";
+        savedRegisters.clear();
+        std::unordered_set<std::shared_ptr<X86_64AsmRegister>> savedRegistersSet;
+        for(std::shared_ptr<X86_64AsmBasicBlock> block : function->blocks)
+        {
+            for(std::shared_ptr<X86_64AsmNode> node : block->instructions)
+            {
+                for(std::shared_ptr<X86_64AsmRegister> r : node->outputSet())
+                {
+                    r = r->getSaveRegister();
+                    if(r == nullptr || r->isSpecialPurpose || !r->isCalleeSave)
+                        continue;
+                    savedRegistersSet.insert(r);
+                }
+            }
+        }
+        for(std::shared_ptr<X86_64AsmRegister> r : savedRegistersSet)
+        {
+            savedRegisters.push_front(SavedRegister(r, r->physicalRegisterKindMask.createSaveLocation(function->localVariablesSize), static_cast<bool>(r->physicalRegisterKindMask & X86_64AsmRegister::PhysicalRegisterKindMask::Float())));
+        }
+        savedRegistersSet.clear();
         const std::uint64_t stackAlign = 16;
         alignedLocalsSize = ((function->localVariablesSize + (stackAlign - 1)) / stackAlign) * stackAlign;
         if(alignedLocalsSize != 0)
             os << "    sub %rsp, " << alignedLocalsSize << "\n";
+        for(const SavedRegister &r : savedRegisters)
+        {
+            if(r.isFloatingPoint)
+            {
+                os << "    movaps [%rbp - " << (alignedLocalsSize - r.saveLocationStart) << "], %" << r.r->name << "\n";
+            }
+            else
+            {
+                os << "    mov [%rbp - " << (alignedLocalsSize - r.saveLocationStart) << "], %" << r.r->name << "\n";
+            }
+        }
         os << "\n";
         std::vector<std::shared_ptr<X86_64AsmBasicBlock>> blocks;
         blocks.reserve(function->blocks.size());

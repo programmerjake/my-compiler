@@ -195,6 +195,7 @@
 			<Option target="Release" />
 		</Unit>
 		<Unit filename="util/random_access_list.h" />
+		<Unit filename="util/spill_location.h" />
 		<Unit filename="values/value.h">
 			<Option target="Debug" />
 			<Option target="Release" />

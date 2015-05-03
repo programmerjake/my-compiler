@@ -28,6 +28,7 @@
 #include "../context.h"
 #include "../types/type.h"
 #include "../values/value.h"
+#include "../util/spill_location.h"
 
 class SSANodeVisitor;
 class SSAControlTransfer;
@@ -40,8 +41,9 @@ class SSANode : public std::enable_shared_from_this<SSANode>
 public:
     CompilerContext *const context;
     std::shared_ptr<TypeNode> type;
-    explicit SSANode(CompilerContext *context, std::shared_ptr<TypeNode> type)
-        : context(context), type(type)
+    SpillLocation spillLocation;
+    explicit SSANode(CompilerContext *context, std::shared_ptr<TypeNode> type, SpillLocation spillLocation)
+        : context(context), type(type), spillLocation(spillLocation)
     {
         assert(type != nullptr);
         assert(context != nullptr);

@@ -79,6 +79,8 @@ public:
         }
         static constexpr PhysicalRegisterKindMask None() {return PhysicalRegisterKindMask(false, false, false, false, false, false);}
         static constexpr PhysicalRegisterKindMask All() {return PhysicalRegisterKindMask(true, true, true, true, true, true);}
+        static constexpr PhysicalRegisterKindMask Int() {return PhysicalRegisterKindMask(true, true, true, true, false, false);}
+        static constexpr PhysicalRegisterKindMask Float() {return PhysicalRegisterKindMask(false, false, false, false, true, true);}
         static constexpr PhysicalRegisterKindMask Int8() {return PhysicalRegisterKindMask(true, false, false, false, false, false);}
         static constexpr PhysicalRegisterKindMask Int16() {return PhysicalRegisterKindMask(false, true, false, false, false, false);}
         static constexpr PhysicalRegisterKindMask Int32() {return PhysicalRegisterKindMask(false, false, true, false, false, false);}
@@ -151,36 +153,70 @@ public:
                 return 1;
             throw std::logic_error("getSpillSize called on X86_64AsmRegister::PhysicalRegisterKindMask::None()");
         }
+        std::uint64_t getSaveSize() const
+        {
+            if(float32 || float64)
+                return 16;
+            if(int64)
+                return 8;
+            if(int32)
+                return 4;
+            if(int16)
+                return 2;
+            if(int8)
+                return 1;
+            throw std::logic_error("getSaveSize called on X86_64AsmRegister::PhysicalRegisterKindMask::None()");
+        }
         std::uint64_t getSpillAlignment() const
         {
             return getSpillSize();
         }
-        std::uint64_t createSpillLocation(std::uint64_t &localsSize) const
+        std::uint64_t getSaveAlignment() const
+        {
+            return getSaveSize();
+        }
+        SpillLocation createSpillLocation(std::uint64_t &localsSize) const
         {
             std::uint64_t spillSize = getSpillSize();
             std::uint64_t spillAlignment = getSpillAlignment();
             localsSize += ((spillAlignment - localsSize % spillAlignment) % spillAlignment);
             std::uint64_t retval = localsSize;
             localsSize += spillSize;
+            return SpillLocation(SpillLocation::LocationKind::LocalVariable, retval);
+        }
+        std::uint64_t createSaveLocation(std::uint64_t &localsSize) const
+        {
+            std::uint64_t saveSize = getSpillSize();
+            std::uint64_t saveAlignment = getSpillAlignment();
+            localsSize += ((saveAlignment - localsSize % saveAlignment) % saveAlignment);
+            std::uint64_t retval = localsSize;
+            localsSize += saveSize;
             return retval;
         }
     };
     const PhysicalRegisterKindMask physicalRegisterKindMask;
+    SpillLocation spillLocation;
 private:
     std::vector<std::shared_ptr<X86_64AsmRegister>> interferenceSet;
+    std::shared_ptr<X86_64AsmRegister> saveRegister;
 public:
     const std::vector<std::shared_ptr<X86_64AsmRegister>> &getPhysicalRegisterInterferenceSet() const
     {
         return interferenceSet;
     }
+    std::shared_ptr<X86_64AsmRegister> getSaveRegister() const
+    {
+        return saveRegister;
+    }
     const bool isSpecialPurpose; /// if this register should not be picked by the register allocator
+    const bool isCalleeSave;
 private:
     struct constructTag final
     {
     };
 public:
-    X86_64AsmRegister(CompilerContext *context, RegisterType registerType, std::string name, PhysicalRegisterKindMask physicalRegisterKindMask, bool isSpecialPurpose, constructTag)
-        : context(context), registerType(registerType), name(name), physicalRegisterKindMask(physicalRegisterKindMask), isSpecialPurpose(isSpecialPurpose)
+    X86_64AsmRegister(CompilerContext *context, RegisterType registerType, std::string name, PhysicalRegisterKindMask physicalRegisterKindMask, bool isSpecialPurpose, bool isCalleeSave, constructTag)
+        : context(context), registerType(registerType), name(name), physicalRegisterKindMask(physicalRegisterKindMask), isSpecialPurpose(isSpecialPurpose), isCalleeSave(isCalleeSave)
     {
     }
 private:
@@ -201,27 +237,35 @@ private:
         return *retval;
     }
 public:
-    static std::shared_ptr<X86_64AsmRegister> getVirtualRegister(CompilerContext *context, std::string name, PhysicalRegisterKindMask physicalRegisterKindMask)
+    static std::shared_ptr<X86_64AsmRegister> getVirtualRegister(CompilerContext *context, std::string name, PhysicalRegisterKindMask physicalRegisterKindMask, SpillLocation spillLocation)
     {
         std::shared_ptr<X86_64AsmRegister> &retval = getVirtualRegisterMap(context)[name];
         if(retval == nullptr)
-            retval = std::make_shared<X86_64AsmRegister>(context, RegisterType::Virtual, name, physicalRegisterKindMask, false, constructTag());
+        {
+            retval = std::make_shared<X86_64AsmRegister>(context, RegisterType::Virtual, name, physicalRegisterKindMask, false, false, constructTag());
+            retval->spillLocation = spillLocation;
+        }
         return retval;
     }
 private:
-    static std::shared_ptr<X86_64AsmRegister> makePhysicalRegister(CompilerContext *context, std::string name, PhysicalRegisterKindMask physicalRegisterKindMask, bool isSpecialPurpose)
+    static std::shared_ptr<X86_64AsmRegister> makePhysicalRegister(CompilerContext *context, std::string name, PhysicalRegisterKindMask physicalRegisterKindMask, bool isSpecialPurpose, bool isCalleeSave)
     {
         std::shared_ptr<X86_64AsmRegister> &retval = getPhysicalRegisterMap(context)[name];
         if(retval == nullptr)
-            retval = std::make_shared<X86_64AsmRegister>(context, RegisterType::Physical, name, physicalRegisterKindMask, isSpecialPurpose, constructTag());
+            retval = std::make_shared<X86_64AsmRegister>(context, RegisterType::Physical, name, physicalRegisterKindMask, isSpecialPurpose, isCalleeSave, constructTag());
         return retval;
     }
-    static void constructAndAddIntegerPhysicalRegisters(CompilerContext *context, std::shared_ptr<std::vector<std::shared_ptr<X86_64AsmRegister>>> retval, std::string name64, std::string name32, std::string name16, std::string name8, bool isSpecialPurpose)
+    static void constructAndAddIntegerPhysicalRegisters(CompilerContext *context, std::shared_ptr<std::vector<std::shared_ptr<X86_64AsmRegister>>> retval, std::string name64, std::string name32, std::string name16, std::string name8, bool isSpecialPurpose, bool isCalleeSave)
     {
-        std::shared_ptr<X86_64AsmRegister> r64 = makePhysicalRegister(context, name64, PhysicalRegisterKindMask::Int64(), isSpecialPurpose);
-        std::shared_ptr<X86_64AsmRegister> r32 = makePhysicalRegister(context, name32, PhysicalRegisterKindMask::Int32(), isSpecialPurpose);
-        std::shared_ptr<X86_64AsmRegister> r16 = makePhysicalRegister(context, name16, PhysicalRegisterKindMask::Int16(), isSpecialPurpose);
-        std::shared_ptr<X86_64AsmRegister> r8 = makePhysicalRegister(context, name8, PhysicalRegisterKindMask::Int8(), isSpecialPurpose);
+        std::shared_ptr<X86_64AsmRegister> r64 = makePhysicalRegister(context, name64, PhysicalRegisterKindMask::Int64(), isSpecialPurpose, isCalleeSave);
+        std::shared_ptr<X86_64AsmRegister> r32 = makePhysicalRegister(context, name32, PhysicalRegisterKindMask::Int32(), isSpecialPurpose, isCalleeSave);
+        std::shared_ptr<X86_64AsmRegister> r16 = makePhysicalRegister(context, name16, PhysicalRegisterKindMask::Int16(), isSpecialPurpose, isCalleeSave);
+        std::shared_ptr<X86_64AsmRegister> r8 = makePhysicalRegister(context, name8, PhysicalRegisterKindMask::Int8(), isSpecialPurpose, isCalleeSave);
+
+        r64->saveRegister = r64;
+        r32->saveRegister = r64;
+        r16->saveRegister = r64;
+        r8->saveRegister = r64;
 
         r64->interferenceSet.push_back(r32);
         r64->interferenceSet.push_back(r16);
@@ -260,7 +304,7 @@ public:
                                                         std::string("e") + nameMiddle + "x",
                                                         nameMiddle + std::string("x"),
                                                         nameMiddle + std::string("l"),
-                                                        false);
+                                                        false, nameMiddle == 'b');
             }
             for(std::string baseName : {"si", "di"})
             {
@@ -270,7 +314,7 @@ public:
                                                         "e" + baseName,
                                                         baseName,
                                                         baseName + "l",
-                                                        false);
+                                                        false, false);
             }
             for(std::string baseName : {"sp", "bp"})
             {
@@ -280,7 +324,7 @@ public:
                                                         "e" + baseName,
                                                         baseName,
                                                         baseName + "l",
-                                                        true);
+                                                        true, true);
             }
             for(int i = 8; i < 16; i++)
             {
@@ -293,14 +337,16 @@ public:
                                                         baseName + "d",
                                                         baseName + "w",
                                                         baseName + "b",
-                                                        false);
+                                                        false, i >= 12);
             }
             for(int i = 0; i < 16; i++)
             {
                 std::ostringstream ss;
                 ss << "xmm" << i;
                 std::string name = ss.str();
-                retval->push_back(makePhysicalRegister(context, name, PhysicalRegisterKindMask::Float64() | PhysicalRegisterKindMask::Float32(), false));
+                std::shared_ptr<X86_64AsmRegister> r = makePhysicalRegister(context, name, PhysicalRegisterKindMask::Float64() | PhysicalRegisterKindMask::Float32(), false, false);
+                r->saveRegister = r;
+                retval->push_back(r);
             }
         }
         return *retval;

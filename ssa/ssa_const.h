@@ -26,8 +26,8 @@ class SSAConstant final : public SSANode
 {
 public:
     std::shared_ptr<ValueNode> value;
-    SSAConstant(std::shared_ptr<ValueNode> value)
-        : SSANode(value->context, value->type), value(value)
+    SSAConstant(std::shared_ptr<ValueNode> value, SpillLocation spillLocation)
+        : SSANode(value->context, value->type, spillLocation), value(value)
     {
     }
     virtual void visit(SSANodeVisitor &visitor) override

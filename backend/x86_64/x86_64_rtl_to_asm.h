@@ -47,7 +47,7 @@ private:
         std::shared_ptr<X86_64AsmRegister> &retval = registerMap[v];
         if(retval == nullptr)
         {
-            retval = X86_64AsmRegister::getVirtualRegister(reg->context, reg->name, X86_64TypeToPhysicalRegisterKindMask::run(type));
+            retval = X86_64AsmRegister::getVirtualRegister(reg->context, reg->name, X86_64TypeToPhysicalRegisterKindMask::run(type), reg->spillLocation);
         }
         return retval;
     }

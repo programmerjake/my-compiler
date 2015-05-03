@@ -160,7 +160,7 @@ public:
                     continue;
                 if(isValueUndefined(value) || isValueVarying(value))
                     continue;
-                std::shared_ptr<SSANode> replacementNode = std::make_shared<SSAConstant>(value);
+                std::shared_ptr<SSANode> replacementNode = std::make_shared<SSAConstant>(value, nullptr);
                 assert(replacementNode != nullptr);
                 nodeReplacementMap.emplace(node, SSANode::ReplacementNode(replacementNode, false));
                 values[replacementNode] = value;

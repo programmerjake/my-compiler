@@ -294,7 +294,7 @@ public:
                 break;
             for(std::shared_ptr<LiveRangeData> liveRange : spilledLiveRanges)
             {
-                std::uint64_t spillLocation = 0;
+                SpillLocation spillLocation = nullptr;
                 if(!liveRange->isConstant || liveRange->constantValue == nullptr) // if not a constant live range allocate local
                     spillLocation = liveRange->originalRegister->physicalRegisterKindMask.createSpillLocation(function->localVariablesSize);
                 for(auto p : liveRange->spillLoadPoints)
@@ -323,7 +323,9 @@ public:
                         }
                         else
                         {
-                            std::shared_ptr<X86_64AsmNode> node = std::make_shared<X86_64AsmNodeLoadLocal>(liveRange->originalRegister, spillLocation);
+                            if(spillLocation.locationKind != SpillLocation::LocationKind::LocalVariable)
+                                throw std::runtime_error("register spill location kind not implemented");
+                            std::shared_ptr<X86_64AsmNode> node = std::make_shared<X86_64AsmNodeLoadLocal>(liveRange->originalRegister, spillLocation.start);
                             block->instructions.insert(pos, node);
                         }
                     }
@@ -349,7 +351,9 @@ public:
                     {
                         if(!liveRange->isConstant || liveRange->constantValue == nullptr) // don't store constants
                         {
-                            std::shared_ptr<X86_64AsmNode> node = std::make_shared<X86_64AsmNodeStoreLocal>(spillLocation, liveRange->originalRegister);
+                            if(spillLocation.locationKind != SpillLocation::LocationKind::LocalVariable)
+                                throw std::runtime_error("register spill location kind not implemented");
+                            std::shared_ptr<X86_64AsmNode> node = std::make_shared<X86_64AsmNodeStoreLocal>(spillLocation.start, liveRange->originalRegister);
                             block->instructions.insert(pos + 1, node);
                         }
                     }

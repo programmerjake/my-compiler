@@ -40,13 +40,13 @@ std::shared_ptr<SSAFunction> makeFunction(CompilerContext *context)
     auto loopBlock = std::make_shared<SSABasicBlock>(context);
     retval->blocks.push_back(loopBlock);
     retval->blocks.push_back(retval->endBlock);
-    auto startBlockA = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, false));
+    auto startBlockA = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, false), nullptr);
     retval->startBlock->instructions.push_back(startBlockA);
     retval->startBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, loopBlock);
     retval->startBlock->instructions.push_back(retval->startBlock->controlTransferInstruction);
-    auto loopBlockCond = std::make_shared<SSAPhi>(TypeBoolean::make(context));
+    auto loopBlockCond = std::make_shared<SSAPhi>(TypeBoolean::make(context), startBlockA->spillLocation);
     loopBlock->instructions.push_back(loopBlockCond);
-    auto loopBlockA = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, true));
+    auto loopBlockA = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, true), nullptr);
     loopBlock->instructions.push_back(loopBlockA);
     loopBlockCond->inputs.push_back(SSAPhi::PhiInput{loopBlockA, loopBlock});
     loopBlockCond->inputs.push_back(SSAPhi::PhiInput{startBlockA, retval->startBlock});
@@ -58,7 +58,7 @@ std::shared_ptr<SSAFunction> makeFunction(CompilerContext *context)
 std::string getSourceCode()
 {
     return
-R"(for(boolean x = true, y = true; y; y = x, x = false)
+R"(for(boolean x = true, y = true, z = true; z; z = y, y = x, x = false)
 {
     void *a = null;
     constant void *b;

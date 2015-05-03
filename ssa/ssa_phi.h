@@ -48,6 +48,24 @@ private:
 #endif
         return type;
     }
+    static SpillLocation calcSpillLocation(const std::list<PhiInput> &inputs)
+    {
+        SpillLocation retval = nullptr;
+        bool isFirst = true;
+        for(const PhiInput &i : inputs)
+        {
+            std::shared_ptr<SSANode> in = i.node.lock();
+            assert(in);
+            if(isFirst)
+            {
+                isFirst = false;
+                retval = in->spillLocation;
+            }
+            else if(retval != in->spillLocation)
+                retval = nullptr;
+        }
+        return retval;
+    }
     static CompilerContext *calcContext(const std::list<PhiInput> &inputs)
     {
         assert(!inputs.empty());
@@ -57,11 +75,11 @@ private:
     }
 public:
     explicit SSAPhi(std::list<PhiInput> inputs)
-        : SSANode(calcContext(inputs), calcType(inputs)), inputs(inputs)
+        : SSANode(calcContext(inputs), calcType(inputs), calcSpillLocation(inputs)), inputs(inputs)
     {
     }
-    explicit SSAPhi(std::shared_ptr<TypeNode> type)
-        : SSANode(type->context, type)
+    explicit SSAPhi(std::shared_ptr<TypeNode> type, SpillLocation spillLocation)
+        : SSANode(type->context, type, spillLocation)
     {
     }
     virtual void visit(SSANodeVisitor &visitor) override

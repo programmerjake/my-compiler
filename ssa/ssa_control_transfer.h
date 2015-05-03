@@ -28,7 +28,7 @@ class SSAControlTransfer : public SSANode // can't have a value
 {
 public:
     explicit SSAControlTransfer(CompilerContext *context)
-        : SSANode(context, TypeVoid::make(context))
+        : SSANode(context, TypeVoid::make(context), nullptr)
     {
     }
     std::list<std::weak_ptr<SSABasicBlock>> destBlocks;

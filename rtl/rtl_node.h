@@ -33,8 +33,9 @@ class RTLRegister final : public std::enable_shared_from_this<RTLRegister>
 public:
     CompilerContext *const context;
     const std::string name;
-    RTLRegister(CompilerContext *context, std::string name)
-        : context(context), name(name)
+    SpillLocation spillLocation;
+    RTLRegister(CompilerContext *context, std::string name, SpillLocation spillLocation)
+        : context(context), name(name), spillLocation(spillLocation)
     {
     }
 };
