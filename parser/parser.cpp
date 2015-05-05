@@ -31,11 +31,14 @@ namespace
 struct Symbol final
 {
     std::string name;
-    std::unordered_map<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSANode>> nodes;
     std::shared_ptr<TypeNode> type;
-    SpillLocation spillLocation;
-    Symbol(std::string name, std::shared_ptr<TypeNode> type, SpillLocation spillLocation)
-        : name(name), type(type), spillLocation(spillLocation)
+    VariableLocation location;
+    static VariableLocation makeLocal(std::shared_ptr<SSAFunction> function, std::shared_ptr<TypeNode> type)
+    {
+        return VariableLocation(VariableLocation::LocationKind::LocalVariable, function->context->backend->getTypeProperties(type).allocateVariable(function->localVariablesSize));
+    }
+    Symbol(std::string name, std::shared_ptr<TypeNode> type, VariableLocation location)
+        : name(name), type(type), location(location)
     {
     }
 };
@@ -83,74 +86,6 @@ private:
     {
         symbolTables.pop_front();
     }
-    struct PhiPatch final
-    {
-        std::shared_ptr<SSAPhi> phi;
-        std::list<SSAPhi::PhiInput>::iterator phiInputIterator;
-        std::shared_ptr<Symbol> symbol;
-        PhiPatch(std::shared_ptr<SSAPhi> phi, std::list<SSAPhi::PhiInput>::iterator phiInputIterator, std::shared_ptr<Symbol> symbol)
-            : phi(phi), phiInputIterator(phiInputIterator), symbol(symbol)
-        {
-        }
-        void operator ()()
-        {
-            std::shared_ptr<SSANode> node = symbol->nodes[phiInputIterator->block.lock()];
-            phiInputIterator->node = node;
-            assert(node != nullptr);
-        }
-    };
-    std::list<PhiPatch> addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>> sourceBlocks)
-    {
-        std::list<PhiPatch> patches;
-        for(auto &table : symbolTables)
-        {
-            for(auto &p : table)
-            {
-                std::shared_ptr<Symbol> symbol = std::get<1>(p);
-                if(sourceBlocks.empty()) // if no source blocks pick any node
-                {
-                    symbol->nodes[currentBasicBlock] = std::get<1>(*symbol->nodes.begin());
-                    continue;
-                }
-                std::shared_ptr<SSAPhi> phi = std::make_shared<SSAPhi>(symbol->type, symbol->spillLocation);
-                std::size_t size = 0;
-                bool hasPatch = false, allNodesEqual = true;
-                std::shared_ptr<SSANode> node;
-                for(std::shared_ptr<SSABasicBlock> sourceBlock : sourceBlocks)
-                {
-                    std::shared_ptr<SSANode> currentNode = symbol->nodes[sourceBlock];
-                    if(size > 0 && node != currentNode)
-                        allNodesEqual = false;
-                    node = currentNode;
-                    auto iter = phi->inputs.insert(phi->inputs.end(), SSAPhi::PhiInput{node, sourceBlock});
-                    if(node == nullptr)
-                    {
-                        patches.emplace_back(phi, iter, symbol);
-                        hasPatch = true;
-                    }
-                    size++;
-                }
-                if(!hasPatch && allNodesEqual)
-                {
-                    symbol->nodes[currentBasicBlock] = node;
-                    continue;
-                }
-                symbol->nodes[currentBasicBlock] = phi;
-                currentBasicBlock->instructions.push_back(phi);
-            }
-        }
-        return patches;
-    }
-    std::list<PhiPatch> combinePatches(std::list<PhiPatch> a, std::list<PhiPatch> b)
-    {
-        a.splice(a.end(), b);
-        return std::move(a);
-    }
-    void applyPhiPatches(std::list<PhiPatch> patches)
-    {
-        for(auto patch : patches)
-            patch();
-    }
 
     std::shared_ptr<SSANode> topLevelExpression()
     {
@@ -171,7 +106,11 @@ private:
             if(symbol == nullptr)
                 throw ParseError("undeclared symbol");
             tokenizer.readNext();
-            return symbol->nodes[currentBasicBlock];
+            std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueLocalVariablePointer>(context, symbol->location.start, symbol->type), nullptr);
+            currentBasicBlock->instructions.push_back(addressNode);
+            std::shared_ptr<SSANode> valueNode = std::make_shared<SSALoad>(addressNode, symbol->location);
+            currentBasicBlock->instructions.push_back(valueNode);
+            return valueNode;
         }
         case TokenType::False:
         {
@@ -247,13 +186,13 @@ private:
                     throw ParseError("undeclared symbol");
                 tokenizer.readNext();
                 std::shared_ptr<SSANode> newNode = assignmentExpression();
-                std::shared_ptr<SSANode> &node = symbol->nodes[currentBasicBlock];
-                if(node == nullptr)
-                    throw std::logic_error("old node was null in assign");
                 if(newNode->type != symbol->type)
                     throw ParseError("types don't match for =");
-                node = newNode;
-                return node;
+                std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueLocalVariablePointer>(context, symbol->location.start, symbol->type), nullptr);
+                currentBasicBlock->instructions.push_back(addressNode);
+                std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(addressNode, newNode);
+                currentBasicBlock->instructions.push_back(storeNode);
+                return newNode;
             }
             else
             {
@@ -397,11 +336,14 @@ private:
             std::shared_ptr<ValueNode> initialValue = theType->makeDefaultValue();
             if(initialValue == nullptr)
                 throw ParseError("invalid type for variable");
-            std::shared_ptr<Symbol> symbol = std::make_shared<Symbol>(name, theType, nullptr);
+            std::shared_ptr<Symbol> symbol = std::make_shared<Symbol>(name, theType, Symbol::makeLocal(function, theType));
             addSymbolToTopSymbolTable(symbol);
-            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(initialValue, symbol->spillLocation);
-            symbol->nodes[currentBasicBlock] = node;
+            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(initialValue, symbol->location);
             currentBasicBlock->instructions.push_back(node);
+            std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueLocalVariablePointer>(context, symbol->location.start, symbol->type), nullptr);
+            currentBasicBlock->instructions.push_back(addressNode);
+            std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(addressNode, node);
+            currentBasicBlock->instructions.push_back(storeNode);
             expression(true);
             if(tokenizer.tokenType == terminatingToken)
             {
@@ -430,7 +372,6 @@ private:
         std::shared_ptr<SSABasicBlock> endBlock = std::make_shared<SSABasicBlock>(context);
         currentBasicBlock = thenBlock;
         function->blocks.push_back(currentBasicBlock);
-        auto patches = addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{startBlock});
         statement();
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, endBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
@@ -439,22 +380,17 @@ private:
             tokenizer.readNext();
             currentBasicBlock = elseBlock;
             function->blocks.push_back(currentBasicBlock);
-            patches = combinePatches(addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{startBlock}), std::move(patches));
             statement();
             currentBasicBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, endBlock);
             currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
             currentBasicBlock = endBlock;
             function->blocks.push_back(currentBasicBlock);
-            patches = combinePatches(addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{thenBlock, elseBlock}), std::move(patches));
-            applyPhiPatches(std::move(patches));
             startBlock->controlTransferInstruction = std::make_shared<SSAConditionalJump>(context, condition, thenBlock, elseBlock);
             startBlock->instructions.push_back(startBlock->controlTransferInstruction);
             return;
         }
         currentBasicBlock = endBlock;
         function->blocks.push_back(currentBasicBlock);
-        patches = combinePatches(addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{thenBlock, startBlock}), std::move(patches));
-        applyPhiPatches(std::move(patches));
         startBlock->controlTransferInstruction = std::make_shared<SSAConditionalJump>(context, condition, thenBlock, endBlock);
         startBlock->instructions.push_back(startBlock->controlTransferInstruction);
     }
@@ -471,7 +407,6 @@ private:
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = loopBlock;
         function->blocks.push_back(currentBasicBlock);
-        auto patches = addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{startBlock, loopBlock});
         statement();
         if(tokenizer.tokenType != TokenType::While)
             throw ParseError("expected while");
@@ -485,8 +420,6 @@ private:
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = endBlock;
         function->blocks.push_back(currentBasicBlock);
-        patches = combinePatches(addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{loopBlock}), std::move(patches));
-        applyPhiPatches(std::move(patches));
         if(tokenizer.tokenType != TokenType::Semicolon)
             throw ParseError("expected ;");
         tokenizer.readNext();
@@ -505,7 +438,6 @@ private:
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = conditionBlock;
         function->blocks.push_back(currentBasicBlock);
-        auto patches = addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{startBlock, loopBlock});
         if(tokenizer.tokenType != TokenType::LParen)
             throw ParseError("expected (");
         std::shared_ptr<SSANode> condition = expression(); // handles parenthesis
@@ -515,14 +447,11 @@ private:
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = loopBlock;
         function->blocks.push_back(currentBasicBlock);
-        patches = combinePatches(addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{conditionBlock}), std::move(patches));
         statement();
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, conditionBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = endBlock;
         function->blocks.push_back(currentBasicBlock);
-        patches = combinePatches(addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{conditionBlock}), std::move(patches));
-        applyPhiPatches(std::move(patches));
     }
 
     void forStatement()
@@ -544,7 +473,6 @@ private:
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = conditionBlock;
         function->blocks.push_back(currentBasicBlock);
-        auto patches = addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{startBlock, updateBlock});
         std::shared_ptr<SSANode> condition = expression();
         if(tokenizer.tokenType != TokenType::Semicolon)
             throw ParseError("expected ;");
@@ -555,7 +483,6 @@ private:
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = updateBlock;
         function->blocks.push_back(currentBasicBlock);
-        patches = combinePatches(addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{loopBlock}), std::move(patches));
         expression();
         if(tokenizer.tokenType != TokenType::RParen)
             throw ParseError("expected )");
@@ -564,14 +491,11 @@ private:
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = loopBlock;
         function->blocks.push_back(currentBasicBlock);
-        patches = combinePatches(addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{conditionBlock}), std::move(patches));
         statement();
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, updateBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = endBlock;
         function->blocks.push_back(currentBasicBlock);
-        patches = combinePatches(addPhiFunctions(std::list<std::shared_ptr<SSABasicBlock>>{conditionBlock}), std::move(patches));
-        applyPhiPatches(std::move(patches));
         popSymbolTable();
     }
 

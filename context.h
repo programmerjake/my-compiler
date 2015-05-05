@@ -22,6 +22,7 @@
 #include <memory>
 #include <unordered_map>
 #include <atomic>
+#include "backend/backend.h"
 
 class TypeNode;
 
@@ -58,6 +59,11 @@ public:
     std::shared_ptr<T> getValue()
     {
         return std::static_pointer_cast<T>(values[getValueIndex<T>()]);
+    }
+    const Backend *const backend;
+    CompilerContext(const Backend *backend)
+        : backend(backend)
+    {
     }
 };
 

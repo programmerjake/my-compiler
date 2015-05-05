@@ -36,6 +36,7 @@ public:
     {
     }
     virtual void outputAsAssembly(std::ostream &os, std::list<std::shared_ptr<RTLFunction>> functions) const override;
+    virtual TypeProperties getTypeProperties(std::shared_ptr<TypeNode> type) const override;
 };
 
 #endif // X86_64_BACKEND_H_INCLUDED

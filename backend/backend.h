@@ -21,9 +21,26 @@
 
 #include <memory>
 #include <ostream>
-#include "../rtl/rtl_node.h"
 #include <list>
 #include <stdexcept>
+#include <cstdint>
+
+class RTLFunction;
+
+struct TypeProperties final
+{
+    std::uint64_t alignment;
+    std::uint64_t size;
+    std::uint64_t allocateVariable(std::uint64_t &memoryAllocated) const
+    {
+        memoryAllocated += ((alignment - memoryAllocated % alignment) % alignment);
+        std::uint64_t retval = memoryAllocated;
+        memoryAllocated += size;
+        return retval;
+    }
+};
+
+class TypeNode;
 
 class Backend : public std::enable_shared_from_this<Backend>
 {
@@ -33,6 +50,7 @@ public:
     Backend() = default;
     virtual ~Backend() = default;
     virtual void outputAsAssembly(std::ostream &os, std::list<std::shared_ptr<RTLFunction>> functions) const = 0;
+    virtual TypeProperties getTypeProperties(std::shared_ptr<TypeNode> type) const = 0;
 };
 
 class NotImplementedException : public std::runtime_error

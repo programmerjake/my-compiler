@@ -122,8 +122,8 @@ class ValueLocalVariablePointer final : public ValueNode
 {
 public:
     std::uint64_t start; /// byte count into local variables
-    explicit ValueLocalVariablePointer(CompilerContext *context, std::uint64_t start)
-        : ValueNode(context, TypePointer::make(TypeVoid::make(context)), false), start(start)
+    explicit ValueLocalVariablePointer(CompilerContext *context, std::uint64_t start, std::shared_ptr<TypeNode> variableType)
+        : ValueNode(context, TypePointer::make(variableType), false), start(start)
     {
     }
     virtual void visit(ValueNodeVisitor &visitor) override

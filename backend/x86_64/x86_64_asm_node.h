@@ -32,6 +32,7 @@
 #include <vector>
 #include <cstdint>
 #include "../../util/random_access_list.h"
+#include "../../util/spill_location.h"
 
 class X86_64AsmRegister final : public std::enable_shared_from_this<X86_64AsmRegister>
 {

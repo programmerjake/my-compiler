@@ -81,7 +81,8 @@ int usage(bool isError)
 
 int main(int argc, char **argv)
 {
-    CompilerContext context;
+    BackendX86_64 backend(BackendX86_64::AssemblyDialect::GAS_Intel);
+    CompilerContext context(&backend);
     std::shared_ptr<SSAFunction> fn;
     try
     {
@@ -117,7 +118,6 @@ int main(int argc, char **argv)
     ConstantPropagationAndDeadCodeElimination().visitSSAFunction(fn);
     ControlFlowSimplification().visitSSAFunction(fn);
     std::shared_ptr<RTLFunction> rtlFn = ConvertSSAToRTL().visitSSAFunction(fn);
-    BackendX86_64 backend(BackendX86_64::AssemblyDialect::GAS_Intel);
     backend.outputAsAssembly(std::cout, std::list<std::shared_ptr<RTLFunction>>{rtlFn});
     return 0;
 }
