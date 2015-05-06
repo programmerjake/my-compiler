@@ -125,16 +125,26 @@ public:
     virtual void visitSSAPhi(std::shared_ptr<SSAPhi> node) override;
     virtual void visitSSAConstant(std::shared_ptr<SSAConstant> node) override;
     virtual void visitSSAMove(std::shared_ptr<SSAMove> node) override;
+    virtual void visitSSALoad(std::shared_ptr<SSALoad> node) override;
+    virtual void visitSSAStore(std::shared_ptr<SSAStore> node) override;
+    virtual void visitSSACompare(std::shared_ptr<SSACompare> node) override;
+    virtual void visitSSAAllocA(std::shared_ptr<SSAAllocA> node) override;
     virtual void visitTypeConstant(std::shared_ptr<TypeConstant> node) override;
     virtual void visitTypeVolatile(std::shared_ptr<TypeVolatile> node) override;
     virtual void visitTypeVoid(std::shared_ptr<TypeVoid> node) override;
     virtual void visitTypeBoolean(std::shared_ptr<TypeBoolean> node) override;
+    virtual void visitTypePointer(std::shared_ptr<TypePointer> node) override;
     virtual void visitValueBoolean(std::shared_ptr<ValueBoolean> node) override;
     virtual void visitValueUnknown(std::shared_ptr<ValueUnknown> node) override;
+    virtual void visitValueVariablePointer(std::shared_ptr<ValueVariablePointer> node) override;
+    virtual void visitValueNullPointer(std::shared_ptr<ValueNullPointer> node) override;
     virtual void visitRTLLoadConstant(std::shared_ptr<RTLLoadConstant> node) override;
     virtual void visitRTLMove(std::shared_ptr<RTLMove> node) override;
     virtual void visitRTLUnconditionalJump(std::shared_ptr<RTLUnconditionalJump> node) override;
     virtual void visitRTLConditionalJump(std::shared_ptr<RTLConditionalJump> node) override;
+    virtual void visitRTLLoad(std::shared_ptr<RTLLoad> node) override;
+    virtual void visitRTLStore(std::shared_ptr<RTLStore> node) override;
+    virtual void visitRTLCompare(std::shared_ptr<RTLCompare> node) override;
     void visitSSANode(std::shared_ptr<SSANode> node)
     {
         node->visit(*this);

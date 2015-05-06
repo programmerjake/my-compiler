@@ -183,7 +183,7 @@ public:
             localsSize += ((spillAlignment - localsSize % spillAlignment) % spillAlignment);
             std::uint64_t retval = localsSize;
             localsSize += spillSize;
-            return SpillLocation(SpillLocation::Kind::LocalVariable, retval);
+            return SpillLocation(SpillLocation::Kind::LocalVariable, retval, TypeProperties(spillAlignment, spillSize));
         }
         std::uint64_t createSaveLocation(std::uint64_t &localsSize) const
         {
@@ -224,17 +224,23 @@ private:
     typedef std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>> VirtualRegisterMapType;
     static VirtualRegisterMapType &getVirtualRegisterMap(CompilerContext *context)
     {
-        std::shared_ptr<VirtualRegisterMapType> retval = context->getValue<VirtualRegisterMapType>();
+        struct tag_t
+        {
+        };
+        std::shared_ptr<VirtualRegisterMapType> retval = context->getValue<VirtualRegisterMapType, tag_t>();
         if(retval == nullptr)
-            context->setValue<VirtualRegisterMapType>(retval = std::make_shared<VirtualRegisterMapType>());
+            context->setValue<VirtualRegisterMapType, tag_t>(retval = std::make_shared<VirtualRegisterMapType>());
         return *retval;
     }
     typedef std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>> PhysicalRegisterMapType;
     static PhysicalRegisterMapType &getPhysicalRegisterMap(CompilerContext *context)
     {
-        std::shared_ptr<PhysicalRegisterMapType> retval = context->getValue<PhysicalRegisterMapType>();
+        struct tag_t
+        {
+        };
+        std::shared_ptr<PhysicalRegisterMapType> retval = context->getValue<PhysicalRegisterMapType, tag_t>();
         if(retval == nullptr)
-            context->setValue<PhysicalRegisterMapType>(retval = std::make_shared<PhysicalRegisterMapType>());
+            context->setValue<PhysicalRegisterMapType, tag_t>(retval = std::make_shared<PhysicalRegisterMapType>());
         return *retval;
     }
 public:
@@ -292,11 +298,14 @@ private:
 public:
     static const std::vector<std::shared_ptr<X86_64AsmRegister>> &getPhysicalRegisters(CompilerContext *context)
     {
-        auto retval = context->getValue<std::vector<std::shared_ptr<X86_64AsmRegister>>>();
+        struct tag_t
+        {
+        };
+        auto retval = context->getValue<std::vector<std::shared_ptr<X86_64AsmRegister>>, tag_t>();
         if(retval == nullptr)
         {
             retval = std::make_shared<std::vector<std::shared_ptr<X86_64AsmRegister>>>();
-            context->setValue<std::vector<std::shared_ptr<X86_64AsmRegister>>>(retval);
+            context->setValue<std::vector<std::shared_ptr<X86_64AsmRegister>>, tag_t>(retval);
             for(char nameMiddle : {'a', 'c', 'd', 'b'}) // we don't use ah through dh becuase they can't be used in all instructions because they conflict with the REX (64-bit override) prefix
             {
                 constructAndAddIntegerPhysicalRegisters(context,
@@ -354,11 +363,14 @@ public:
     }
     static std::shared_ptr<X86_64AsmRegister> getPhysicalRegister(CompilerContext *context, std::string name)
     {
-        auto registerMap = context->getValue<std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>>>();
+        struct tag_t
+        {
+        };
+        auto registerMap = context->getValue<std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>>, tag_t>();
         if(registerMap == nullptr)
         {
             registerMap = std::make_shared<std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>>>();
-            context->setValue<std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>>>(registerMap);
+            context->setValue<std::unordered_map<std::string, std::shared_ptr<X86_64AsmRegister>>, tag_t>(registerMap);
             const std::vector<std::shared_ptr<X86_64AsmRegister>> &physicalRegisters = getPhysicalRegisters(context);
             for(std::shared_ptr<X86_64AsmRegister> r : physicalRegisters)
             {
@@ -869,9 +881,9 @@ class X86_64AsmNodeLoadLocal final : public X86_64AsmNode
 {
 public:
     std::shared_ptr<X86_64AsmRegister> dest;
-    std::uint64_t start; /// byte count into local variables
-    explicit X86_64AsmNodeLoadLocal(std::shared_ptr<X86_64AsmRegister> dest, std::uint64_t start)
-        : X86_64AsmNode(dest->context), dest(dest), start(start)
+    VariableLocation location;
+    explicit X86_64AsmNodeLoadLocal(std::shared_ptr<X86_64AsmRegister> dest, VariableLocation location)
+        : X86_64AsmNode(dest->context), dest(dest), location(location)
     {
     }
     virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> inputSet() const override
@@ -896,10 +908,10 @@ public:
 class X86_64AsmNodeStoreLocal final : public X86_64AsmNode
 {
 public:
-    std::uint64_t start; /// byte count into local variables
+    VariableLocation location;
     std::shared_ptr<X86_64AsmRegister> value;
-    explicit X86_64AsmNodeStoreLocal(std::uint64_t start, std::shared_ptr<X86_64AsmRegister> value)
-        : X86_64AsmNode(value->context), start(start), value(value)
+    explicit X86_64AsmNodeStoreLocal(VariableLocation location, std::shared_ptr<X86_64AsmRegister> value)
+        : X86_64AsmNode(value->context), location(location), value(value)
     {
     }
     virtual std::unordered_set<std::shared_ptr<X86_64AsmRegister>> inputSet() const override

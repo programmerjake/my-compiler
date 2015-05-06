@@ -208,7 +208,6 @@ public:
     std::shared_ptr<SSABasicBlock> endBlock;
     std::list<std::shared_ptr<SSANode>> parameters;
     std::shared_ptr<SSANode> returnValue;
-    std::uint64_t localVariablesSize = 0;
     void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, SSANode::ReplacementNode> &replacements)
     {
         auto iter = replacements.find(returnValue);

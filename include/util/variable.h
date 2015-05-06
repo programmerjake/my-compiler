@@ -27,6 +27,8 @@
 #include "types/type.h"
 #include "backend/backend.h"
 
+class SSAAllocA;
+
 class VariableDescriptor final
 {
 public:
@@ -42,7 +44,9 @@ private:
     Kind kind;
     std::shared_ptr<TypeNode> type;
     std::uint64_t start;
+    TypeProperties typeProperties;
 public:
+    std::weak_ptr<SSAAllocA> ssaAllocA;
     Kind getKind() const
     {
         return kind;
@@ -66,13 +70,20 @@ public:
         assert(start == NoStart || start % getAlignment() == 0);
     }
     VariableDescriptor()
-        : kind(Kind::None), type(nullptr), start(NoStart)
+        : kind(Kind::None), type(nullptr), start(NoStart), typeProperties()
     {
     }
     VariableDescriptor(Kind kind, std::shared_ptr<TypeNode> type, std::uint64_t start = NoStart)
         : kind(kind), type(type), start(start)
     {
         assert(kind != Kind::None && type != nullptr);
+        assert(start == NoStart || start % getAlignment() == 0);
+        typeProperties = type->getTypeProperties();
+    }
+    VariableDescriptor(Kind kind, std::uint64_t start, TypeProperties typeProperties)
+        : kind(kind), type(nullptr), start(start), typeProperties(typeProperties)
+    {
+        assert(kind != Kind::None);
         assert(start == NoStart || start % getAlignment() == 0);
     }
     bool empty() const
@@ -95,7 +106,7 @@ public:
     {
         if(empty())
             return TypeProperties();
-        return type->getTypeProperties();
+        return typeProperties;
     }
     void allocate(std::uint64_t &usedSpace)
     {
@@ -174,8 +185,8 @@ struct SpillLocation final
         : kind(variable->getKind()), start(variable->getStart()), variable(variable)
     {
     }
-    SpillLocation(Kind kind, std::uint64_t start)
-        : kind(kind), start(start)
+    SpillLocation(Kind kind, std::uint64_t start, TypeProperties typeProperties)
+        : kind(kind), start(start), variable(std::make_shared<VariableDescriptor>(kind, start, typeProperties))
     {
     }
     bool empty() const

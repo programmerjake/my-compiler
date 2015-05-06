@@ -176,6 +176,10 @@ public:
     {
         return node->makeDefaultValue();
     }
+    virtual std::shared_ptr<TypeNode> dereference() override
+    {
+        return node->dereference();
+    }
 };
 
 class TypeVolatile final : public TypeNode
@@ -222,6 +226,10 @@ public:
     virtual std::shared_ptr<ValueNode> makeDefaultValue() override
     {
         return node->makeDefaultValue();
+    }
+    virtual std::shared_ptr<TypeNode> dereference() override
+    {
+        return node->dereference();
     }
 };
 

@@ -53,10 +53,57 @@ void DumpVisitor::visitSSAConstant(std::shared_ptr<SSAConstant> node)
     node->type->visit(*this);
     os << ")";
 }
+void DumpVisitor::visitSSAAllocA(std::shared_ptr<SSAAllocA> node)
+{
+    dumpInstructionName("SSAAllocA", node);
+    os << "(variableType=";
+    node->variableType->visit(*this);
+    std::shared_ptr<VariableDescriptor> variableDescriptor = node->getVariableDescriptor();
+    if(variableDescriptor->getStart() != VariableDescriptor::NoStart)
+        os << ",start=" << variableDescriptor->getStart();
+    os << ")";
+}
 void DumpVisitor::visitSSAMove(std::shared_ptr<SSAMove> node)
 {
     dumpInstructionName("SSAMove", node);
     os << "(source=" << getSSANodeDisplayValue(node->source.lock()) << ")";
+}
+void DumpVisitor::visitSSALoad(std::shared_ptr<SSALoad> node)
+{
+    dumpInstructionName("SSALoad", node);
+    os << "(address=" << getSSANodeDisplayValue(node->address.lock()) << ")";
+}
+void DumpVisitor::visitSSAStore(std::shared_ptr<SSAStore> node)
+{
+    dumpInstructionName("SSAStore", node);
+    os << "(address=" << getSSANodeDisplayValue(node->address.lock()) << ",value=" << getSSANodeDisplayValue(node->value.lock()) << ")";
+}
+void DumpVisitor::visitSSACompare(std::shared_ptr<SSACompare> node)
+{
+    dumpInstructionName("SSACompare", node);
+    os << "(lhs=" << getSSANodeDisplayValue(node->lhs.lock()) << ",compareOperator=";
+    switch(node->compareOperator)
+    {
+    case SSACompare::CompareOperator::E:
+        os << "'=='";
+        break;
+    case SSACompare::CompareOperator::G:
+        os << "'>'";
+        break;
+    case SSACompare::CompareOperator::GE:
+        os << "'>='";
+        break;
+    case SSACompare::CompareOperator::L:
+        os << "'<'";
+        break;
+    case SSACompare::CompareOperator::LE:
+        os << "'<='";
+        break;
+    default: // NE
+        os << "'!='";
+        break;
+    }
+    os << ",rhs=" << getSSANodeDisplayValue(node->rhs.lock()) << ")";
 }
 void DumpVisitor::visitTypeConstant(std::shared_ptr<TypeConstant> node)
 {
@@ -78,6 +125,12 @@ void DumpVisitor::visitTypeBoolean(std::shared_ptr<TypeBoolean> node)
 {
     os << "TypeBoolean";
 }
+void DumpVisitor::visitTypePointer(std::shared_ptr<TypePointer> node)
+{
+    os << "TypePointer(";
+    node->dereference()->visit(*this);
+    os << ")";
+}
 void DumpVisitor::visitValueBoolean(std::shared_ptr<ValueBoolean> node)
 {
     os << "ValueBoolean(value=";
@@ -91,7 +144,20 @@ void DumpVisitor::visitValueUnknown(std::shared_ptr<ValueUnknown> node)
 {
     os << "ValueUnknown()";
 }
-
+void DumpVisitor::visitValueNullPointer(std::shared_ptr<ValueNullPointer> node)
+{
+    os << "ValueNullPointer()";
+}
+void DumpVisitor::visitValueVariablePointer(std::shared_ptr<ValueVariablePointer> node)
+{
+    VariableLocation location = node->location;
+    os << "ValueVariablePointer(location=VariableLocation(start=";
+    if(location.variable->getStart() != VariableDescriptor::NoStart)
+        os << location.variable->getStart();
+    else
+        os << "<none>";
+    os << ",offset=" << location.offset << "))";
+}
 void DumpVisitor::visitRTLLoadConstant(std::shared_ptr<RTLLoadConstant> node)
 {
     os << "RTLLoadConstant(destRegister=";
@@ -108,6 +174,22 @@ void DumpVisitor::visitRTLMove(std::shared_ptr<RTLMove> node)
     dumpRTLRegister(node->sourceRegister);
     os << ")";
 }
+void DumpVisitor::visitRTLLoad(std::shared_ptr<RTLLoad> node)
+{
+    os << "RTLLoad(destRegister=";
+    dumpRTLRegister(node->destRegister);
+    os << ",addressRegister=";
+    dumpRTLRegister(node->addressRegister);
+    os << ")";
+}
+void DumpVisitor::visitRTLStore(std::shared_ptr<RTLStore> node)
+{
+    os << "RTLStore(addressRegister=";
+    dumpRTLRegister(node->addressRegister);
+    os << ",valueRegister=";
+    dumpRTLRegister(node->valueRegister);
+    os << ")";
+}
 void DumpVisitor::visitRTLUnconditionalJump(std::shared_ptr<RTLUnconditionalJump> node)
 {
     os << "RTLUnconditionalJump(target=";
@@ -122,6 +204,38 @@ void DumpVisitor::visitRTLConditionalJump(std::shared_ptr<RTLConditionalJump> no
     os << getRTLBasicBlockDisplayValue(node->trueTarget.lock());
     os << ",falseTarget=";
     os << getRTLBasicBlockDisplayValue(node->falseTarget.lock());
+    os << ")";
+}
+void DumpVisitor::visitRTLCompare(std::shared_ptr<RTLCompare> node)
+{
+    os << "RTLCompare(destRegister=";
+    dumpRTLRegister(node->destRegister);
+    os << ",lhsRegister=";
+    dumpRTLRegister(node->lhsRegister);
+    os << ",compareOperator=";
+    switch(node->compareOperator)
+    {
+    case RTLCompare::CompareOperator::E:
+        os << "'=='";
+        break;
+    case RTLCompare::CompareOperator::G:
+        os << "'>'";
+        break;
+    case RTLCompare::CompareOperator::GE:
+        os << "'>='";
+        break;
+    case RTLCompare::CompareOperator::L:
+        os << "'<'";
+        break;
+    case RTLCompare::CompareOperator::LE:
+        os << "'<='";
+        break;
+    default: // NE
+        os << "'!='";
+        break;
+    }
+    os << ",rhsRegister=";
+    dumpRTLRegister(node->rhsRegister);
     os << ")";
 }
 

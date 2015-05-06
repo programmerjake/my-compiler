@@ -38,7 +38,7 @@ private:
         return retval++;
     }
     std::unordered_map<std::size_t, std::shared_ptr<void>> values;
-    template <typename T>
+    template <typename T, typename>
     static std::size_t getValueIndex()
     {
         static std::size_t retval = makeValueIndex();
@@ -50,15 +50,15 @@ public:
     {
         return std::static_pointer_cast<T>(constructTypeNodeHelper(std::shared_ptr<T>(new T(this, std::forward<Args>(args)...))));
     }
-    template <typename T>
+    template <typename T, typename tag_t>
     void setValue(std::shared_ptr<T> value)
     {
-        values[getValueIndex<T>()] = std::static_pointer_cast<void>(value);
+        values[getValueIndex<T, tag_t>()] = std::static_pointer_cast<void>(value);
     }
-    template <typename T>
+    template <typename T, typename tag_t>
     std::shared_ptr<T> getValue()
     {
-        return std::static_pointer_cast<T>(values[getValueIndex<T>()]);
+        return std::static_pointer_cast<T>(values[getValueIndex<T, tag_t>()]);
     }
     const Backend *const backend;
     CompilerContext(const Backend *backend)

@@ -11,6 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
+				<Option parameters="--arch=x86_64" />
 				<Compiler>
 					<Add option="-g" />
 					<Add option="-Wold-style-cast" />
@@ -29,190 +30,65 @@
 					<Add option="-s" />
 				</Linker>
 			</Target>
-			<Target title="RandomAccessListTest">
-				<Option output="bin/RandomAccessListTest/my-compiler" prefix_auto="1" extension_auto="1" />
-				<Option working_dir="bin/RandomAccessListTest/" />
-				<Option object_output="obj/RandomAccessListTest/" />
-				<Option type="1" />
-				<Option compiler="gcc" />
-				<Compiler>
-					<Add option="-g" />
-				</Compiler>
-			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-std=c++11" />
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
-			<Add directory="." />
+			<Add directory="include" />
 		</Compiler>
-		<Unit filename="backend/backend.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="backend/x86_32/x86_32_asm_node.h" />
-		<Unit filename="backend/x86_32/x86_32_asm_nodes.h" />
-		<Unit filename="backend/x86_32/x86_32_asm_writer.h" />
-		<Unit filename="backend/x86_32/x86_32_backend.cpp" />
-		<Unit filename="backend/x86_32/x86_32_backend.h" />
-		<Unit filename="backend/x86_32/x86_32_construct_liveness_info.h" />
-		<Unit filename="backend/x86_32/x86_32_register_allocator.h" />
-		<Unit filename="backend/x86_32/x86_32_rtl_to_asm.h" />
-		<Unit filename="backend/x86_64/x86_64_asm_node.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="backend/x86_64/x86_64_asm_nodes.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="backend/x86_64/x86_64_asm_writer.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="backend/x86_64/x86_64_backend.cpp">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="backend/x86_64/x86_64_backend.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="backend/x86_64/x86_64_construct_liveness_info.h" />
-		<Unit filename="backend/x86_64/x86_64_register_allocator.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="backend/x86_64/x86_64_rtl_to_asm.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="construct_basic_block_graph.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="construct_liveness_info.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="context.cpp">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="context.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="convert_ssa_to_rtl.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="dump.cpp">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="dump.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="main.cpp">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="optimization/const_dead_code/const_dead_code.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="optimization/control_flow_simplification/control_flow_simplification.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="optimization/phi_removal/phi_removal.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="parser/parser.cpp">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="parser/parser.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="random_access_list_test.cpp">
-			<Option target="RandomAccessListTest" />
-		</Unit>
-		<Unit filename="rtl/rtl_node.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="rtl/rtl_nodes.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="ssa/ssa_compare.h" />
-		<Unit filename="ssa/ssa_const.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="ssa/ssa_control_transfer.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="ssa/ssa_move.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="ssa/ssa_node.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="ssa/ssa_nodes.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="ssa/ssa_phi.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="ssa/ssa_visitor.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="tokenizer/token.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="tokenizer/token_names.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="types/type.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="types/type_builtin.cpp">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="types/type_builtin.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="types/types.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="util/random_access_list.h" />
-		<Unit filename="util/variable.h" />
-		<Unit filename="values/value.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
-		<Unit filename="values/values.h">
-			<Option target="Debug" />
-			<Option target="Release" />
-		</Unit>
+		<Unit filename="include/backend/backend.h" />
+		<Unit filename="include/backend/x86_32/x86_32_asm_node.h" />
+		<Unit filename="include/backend/x86_32/x86_32_asm_nodes.h" />
+		<Unit filename="include/backend/x86_32/x86_32_asm_writer.h" />
+		<Unit filename="include/backend/x86_32/x86_32_backend.h" />
+		<Unit filename="include/backend/x86_32/x86_32_construct_liveness_info.h" />
+		<Unit filename="include/backend/x86_32/x86_32_register_allocator.h" />
+		<Unit filename="include/backend/x86_32/x86_32_rtl_to_asm.h" />
+		<Unit filename="include/backend/x86_64/x86_64_asm_node.h" />
+		<Unit filename="include/backend/x86_64/x86_64_asm_nodes.h" />
+		<Unit filename="include/backend/x86_64/x86_64_asm_writer.h" />
+		<Unit filename="include/backend/x86_64/x86_64_backend.h" />
+		<Unit filename="include/backend/x86_64/x86_64_construct_liveness_info.h" />
+		<Unit filename="include/backend/x86_64/x86_64_register_allocator.h" />
+		<Unit filename="include/backend/x86_64/x86_64_rtl_to_asm.h" />
+		<Unit filename="include/construct_basic_block_graph.h" />
+		<Unit filename="include/construct_liveness_info.h" />
+		<Unit filename="include/context.h" />
+		<Unit filename="include/convert_ssa_to_rtl.h" />
+		<Unit filename="include/dump.h" />
+		<Unit filename="include/optimization/const_dead_code/const_dead_code.h" />
+		<Unit filename="include/optimization/control_flow_simplification/control_flow_simplification.h" />
+		<Unit filename="include/optimization/memory_to_register/memory_to_register.h" />
+		<Unit filename="include/optimization/phi_removal/phi_removal.h" />
+		<Unit filename="include/parser/parser.h" />
+		<Unit filename="include/rtl/rtl_node.h" />
+		<Unit filename="include/rtl/rtl_nodes.h" />
+		<Unit filename="include/ssa/ssa_alloc.h" />
+		<Unit filename="include/ssa/ssa_compare.h" />
+		<Unit filename="include/ssa/ssa_const.h" />
+		<Unit filename="include/ssa/ssa_control_transfer.h" />
+		<Unit filename="include/ssa/ssa_move.h" />
+		<Unit filename="include/ssa/ssa_node.h" />
+		<Unit filename="include/ssa/ssa_nodes.h" />
+		<Unit filename="include/ssa/ssa_phi.h" />
+		<Unit filename="include/ssa/ssa_visitor.h" />
+		<Unit filename="include/tokenizer/token.h" />
+		<Unit filename="include/tokenizer/token_names.h" />
+		<Unit filename="include/types/type.h" />
+		<Unit filename="include/types/type_builtin.h" />
+		<Unit filename="include/types/types.h" />
+		<Unit filename="include/util/random_access_list.h" />
+		<Unit filename="include/util/variable.h" />
+		<Unit filename="include/values/value.h" />
+		<Unit filename="include/values/values.h" />
+		<Unit filename="src/backend/x86_32/x86_32_backend.cpp" />
+		<Unit filename="src/backend/x86_64/x86_64_backend.cpp" />
+		<Unit filename="src/context.cpp" />
+		<Unit filename="src/dump.cpp" />
+		<Unit filename="src/main.cpp" />
+		<Unit filename="src/parser/parser.cpp" />
+		<Unit filename="src/types/type_builtin.cpp" />
 		<Extensions>
 			<envvars />
 			<code_completion />

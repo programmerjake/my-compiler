@@ -177,10 +177,12 @@ public:
         const std::vector<std::shared_ptr<X86_32AsmRegister>> &physicalRegisters = X86_32AsmRegister::getPhysicalRegisters(function->context);
         std::unordered_map<X86_32AsmRegister::PhysicalRegisterKindMask, std::size_t> physicalRegisterCountsMap;
         std::unordered_set<std::shared_ptr<LiveRangeData>> liveRanges;
-        for(;;)
+        for(std::size_t tryCount = 0;; tryCount++)
         {
             liveRanges.clear();
             calculateLiveRanges(function, liveRanges);
+            if(tryCount >= liveRanges.size())
+                throw std::runtime_error("can't allocate registers");
             std::vector<std::shared_ptr<LiveRangeData>> liveRangeStack;
             std::unordered_set<std::shared_ptr<LiveRangeData>> liveRangesLeft = liveRanges;
             while(!liveRangesLeft.empty())
@@ -325,7 +327,7 @@ public:
                         {
                             if(spillLocation.kind != SpillLocation::Kind::LocalVariable)
                                 throw std::runtime_error("register spill location kind not implemented");
-                            std::shared_ptr<X86_32AsmNode> node = std::make_shared<X86_32AsmNodeLoadLocal>(liveRange->originalRegister, spillLocation.start);
+                            std::shared_ptr<X86_32AsmNode> node = std::make_shared<X86_32AsmNodeLoadLocal>(liveRange->originalRegister, VariableLocation(spillLocation.variable));
                             block->instructions.insert(pos, node);
                         }
                     }
@@ -353,7 +355,7 @@ public:
                         {
                             if(spillLocation.kind != SpillLocation::Kind::LocalVariable)
                                 throw std::runtime_error("register spill location kind not implemented");
-                            std::shared_ptr<X86_32AsmNode> node = std::make_shared<X86_32AsmNodeStoreLocal>(spillLocation.start, liveRange->originalRegister);
+                            std::shared_ptr<X86_32AsmNode> node = std::make_shared<X86_32AsmNodeStoreLocal>(VariableLocation(spillLocation.variable), liveRange->originalRegister);
                             block->instructions.insert(pos + 1, node);
                         }
                     }

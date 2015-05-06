@@ -16,15 +16,9 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#ifndef SSA_NODES_H_INCLUDED
-#define SSA_NODES_H_INCLUDED
+#ifndef MEMORY_TO_REGISTER_H_INCLUDED
+#define MEMORY_TO_REGISTER_H_INCLUDED
 
-#include "ssa/ssa_node.h"
-#include "ssa/ssa_visitor.h"
-#include "ssa/ssa_const.h"
-#include "ssa/ssa_move.h"
-#include "ssa/ssa_control_transfer.h"
-#include "ssa/ssa_phi.h"
-#include "ssa/ssa_compare.h"
+#error finish
 
-#endif // SSA_NODES_H_INCLUDED
+#endif // MEMORY_TO_REGISTER_H_INCLUDED

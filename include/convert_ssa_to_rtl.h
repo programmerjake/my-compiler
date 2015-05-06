@@ -126,6 +126,13 @@ public:
         std::shared_ptr<RTLNode> newNode = std::make_shared<RTLCompare>(registerMap[node], registerMap[node->lhs.lock()], registerMap[node->rhs.lock()], node->compareOperator, node->lhs.lock()->type);
         currentlyGeneratingBasicBlock->instructions.push_back(newNode);
     }
+    virtual void visitSSAAllocA(std::shared_ptr<SSAAllocA> node) override
+    {
+        std::shared_ptr<VariableDescriptor> variableDescriptor = node->getVariableDescriptor();
+        variableDescriptor->allocate(currentlyGeneratingFunction->localVariablesSize);
+        std::shared_ptr<RTLNode> newNode = std::make_shared<RTLLoadConstant>(registerMap[node], std::make_shared<ValueVariablePointer>(node->context, VariableLocation(variableDescriptor), node->type->dereference()));
+        currentlyGeneratingBasicBlock->instructions.push_back(newNode);
+    }
 private:
     void visitSSANode(std::shared_ptr<SSANode> node)
     {
@@ -163,7 +170,6 @@ public:
         clearAllButFunctionMap();
         PhiRemoval().visitSSAFunction(function);
         currentlyGeneratingFunction = getOrMakeRTLFunction(function);
-        currentlyGeneratingFunction->localVariablesSize = function->localVariablesSize;
         std::deque<std::pair<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSABasicBlock>>> fixPhiEdgesWorklist;
         for(std::shared_ptr<SSABasicBlock> target : function->blocks)
         {

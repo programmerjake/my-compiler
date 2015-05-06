@@ -161,11 +161,11 @@ public:
     }
     virtual void visitX86_32AsmNodeLoadLocal(std::shared_ptr<X86_32AsmNodeLoadLocal> node) override
     {
-        os << "    mov %" << node->dest->name << ", [%ebp - " << (alignedLocalsSize - node->start) << "]\n";
+        os << "    mov %" << node->dest->name << ", [%ebp - " << (alignedLocalsSize - node->location.getStart()) << "]\n";
     }
     virtual void visitX86_32AsmNodeStoreLocal(std::shared_ptr<X86_32AsmNodeStoreLocal> node) override
     {
-        os << "    mov [%ebp - " << (alignedLocalsSize - node->start) << "], %" << node->value->name << "\n";
+        os << "    mov [%ebp - " << (alignedLocalsSize - node->location.getStart()) << "], %" << node->value->name << "\n";
     }
 private:
     void visitX86_32AsmBasicBlock(std::shared_ptr<X86_32AsmBasicBlock> block, bool writeAlign)

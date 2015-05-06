@@ -32,11 +32,12 @@ struct Symbol final
 {
     std::string name;
     std::shared_ptr<TypeNode> type;
-    std::shared_ptr<VariableDescriptor> variable;
+    std::shared_ptr<SSANode> addressNode;
     Symbol(std::string name, std::shared_ptr<TypeNode> type, std::shared_ptr<SSAFunction> function)
-        : name(name), type(type), variable(std::make_shared<VariableDescriptor>(VariableDescriptor::Kind::LocalVariable, type))
+        : name(name), type(type)
     {
-        variable->allocate(function->localVariablesSize);
+        addressNode = std::make_shared<SSAAllocA>(type);
+        function->startBlock->instructions.push_front(addressNode);
     }
 };
 
@@ -103,9 +104,7 @@ private:
             if(symbol == nullptr)
                 throw ParseError("undeclared symbol");
             tokenizer.readNext();
-            std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueVariablePointer>(context, VariableLocation(symbol->variable), symbol->type), nullptr);
-            currentBasicBlock->instructions.push_back(addressNode);
-            std::shared_ptr<SSANode> valueNode = std::make_shared<SSALoad>(addressNode, symbol->variable);
+            std::shared_ptr<SSANode> valueNode = std::make_shared<SSALoad>(symbol->addressNode, nullptr);
             currentBasicBlock->instructions.push_back(valueNode);
             return valueNode;
         }
@@ -185,9 +184,7 @@ private:
                 std::shared_ptr<SSANode> newNode = assignmentExpression();
                 if(newNode->type != symbol->type)
                     throw ParseError("types don't match for =");
-                std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueVariablePointer>(context, VariableLocation(symbol->variable), symbol->type), nullptr);
-                currentBasicBlock->instructions.push_back(addressNode);
-                std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(addressNode, newNode);
+                std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(symbol->addressNode, newNode);
                 currentBasicBlock->instructions.push_back(storeNode);
                 return newNode;
             }
@@ -335,11 +332,9 @@ private:
                 throw ParseError("invalid type for variable");
             std::shared_ptr<Symbol> symbol = std::make_shared<Symbol>(name, theType, function);
             addSymbolToTopSymbolTable(symbol);
-            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(initialValue, symbol->variable);
+            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(initialValue, nullptr);
             currentBasicBlock->instructions.push_back(node);
-            std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueVariablePointer>(context, VariableLocation(symbol->variable), symbol->type), nullptr);
-            currentBasicBlock->instructions.push_back(addressNode);
-            std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(addressNode, node);
+            std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(symbol->addressNode, node);
             currentBasicBlock->instructions.push_back(storeNode);
             expression(true);
             if(tokenizer.tokenType == terminatingToken)
