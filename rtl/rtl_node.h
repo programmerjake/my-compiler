@@ -19,14 +19,14 @@
 #ifndef RTL_NODE_H_INCLUDED
 #define RTL_NODE_H_INCLUDED
 
-#include "../types/type.h"
-#include "../values/value.h"
-#include "../context.h"
+#include "types/type.h"
+#include "values/value.h"
+#include "context.h"
 #include <memory>
 #include <list>
 #include <string>
 #include <unordered_set>
-#include "../ssa/ssa_compare.h"
+#include "ssa/ssa_compare.h"
 
 class RTLRegister final : public std::enable_shared_from_this<RTLRegister>
 {

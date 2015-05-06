@@ -19,6 +19,6 @@
 #ifndef X86_64_ASM_NODES_H_INCLUDED
 #define X86_64_ASM_NODES_H_INCLUDED
 
-#include "x86_64_asm_node.h"
+#include "backend/x86_64/x86_64_asm_node.h"
 
 #endif // X86_64_ASM_NODES_H_INCLUDED

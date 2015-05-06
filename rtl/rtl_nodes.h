@@ -19,6 +19,6 @@
 #ifndef RTL_NODES_H_INCLUDED
 #define RTL_NODES_H_INCLUDED
 
-#include "rtl_node.h"
+#include "rtl/rtl_node.h"
 
 #endif // RTL_NODES_H_INCLUDED

@@ -19,7 +19,7 @@
 #ifndef TYPE_BUILTIN_H_INCLUDED
 #define TYPE_BUILTIN_H_INCLUDED
 
-#include "type.h"
+#include "types/type.h"
 
 template <typename T, std::size_t hashValue>
 class TypeGenericBuiltIn : public TypeBuiltIn

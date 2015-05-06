@@ -19,14 +19,14 @@
 #ifndef CONTROL_FLOW_SIMPLIFICATION_H_INCLUDED
 #define CONTROL_FLOW_SIMPLIFICATION_H_INCLUDED
 
-#include "../../ssa/ssa_nodes.h"
-#include "../../types/types.h"
-#include "../../values/values.h"
+#include "ssa/ssa_nodes.h"
+#include "types/types.h"
+#include "values/values.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include "../../construct_basic_block_graph.h"
-#include "../../dump.h"
+#include "construct_basic_block_graph.h"
+#include "dump.h"
 #include <iostream>
 #include <cassert>
 

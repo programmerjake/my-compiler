@@ -19,8 +19,8 @@
 #ifndef SSA_CONST_H_INCLUDED
 #define SSA_CONST_H_INCLUDED
 
-#include "ssa_node.h"
-#include "../values/value.h"
+#include "ssa/ssa_node.h"
+#include "values/value.h"
 
 class SSAConstant final : public SSANode
 {

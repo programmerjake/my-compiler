@@ -16,8 +16,8 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#include "type_builtin.h"
-#include "../values/values.h"
+#include "types/type_builtin.h"
+#include "values/values.h"
 
 std::shared_ptr<ValueNode> TypeBoolean::makeDefaultValue()
 {

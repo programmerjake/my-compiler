@@ -19,6 +19,6 @@
 #ifndef VALUES_H_INCLUDED
 #define VALUES_H_INCLUDED
 
-#include "value.h"
+#include "values/value.h"
 
 #endif // VALUES_H_INCLUDED

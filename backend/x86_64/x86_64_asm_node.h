@@ -23,16 +23,16 @@
 #include <string>
 #include <unordered_set>
 #include <list>
-#include "../../context.h"
-#include "../../types/types.h"
-#include "../../values/values.h"
+#include "context.h"
+#include "types/types.h"
+#include "values/values.h"
 #include <cassert>
 #include <sstream>
 #include <initializer_list>
 #include <vector>
 #include <cstdint>
-#include "../../util/random_access_list.h"
-#include "../../util/spill_location.h"
+#include "util/random_access_list.h"
+#include "util/variable.h"
 
 class X86_64AsmRegister final : public std::enable_shared_from_this<X86_64AsmRegister>
 {
@@ -183,7 +183,7 @@ public:
             localsSize += ((spillAlignment - localsSize % spillAlignment) % spillAlignment);
             std::uint64_t retval = localsSize;
             localsSize += spillSize;
-            return SpillLocation(SpillLocation::LocationKind::LocalVariable, retval);
+            return SpillLocation(SpillLocation::Kind::LocalVariable, retval);
         }
         std::uint64_t createSaveLocation(std::uint64_t &localsSize) const
         {

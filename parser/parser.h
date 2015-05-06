@@ -19,8 +19,8 @@
 #ifndef PARSER_H_INCLUDED
 #define PARSER_H_INCLUDED
 
-#include "../ssa/ssa_node.h"
-#include "../context.h"
+#include "ssa/ssa_node.h"
+#include "context.h"
 #include <stdexcept>
 #include <istream>
 

@@ -19,7 +19,7 @@
 #ifndef X86_64_CONSTRUCT_LIVENESS_INFO_H_INCLUDED
 #define X86_64_CONSTRUCT_LIVENESS_INFO_H_INCLUDED
 
-#include "x86_64_asm_nodes.h"
+#include "backend/x86_64/x86_64_asm_nodes.h"
 
 class X86_64ConstructLivenessInfo final
 {

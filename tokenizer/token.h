@@ -22,7 +22,7 @@
 #include <istream>
 #include <string>
 #include <cctype>
-#include "../parser/parser.h"
+#include "parser/parser.h"
 #include <iostream>
 #include <vector>
 
@@ -31,7 +31,7 @@ enum class TokenType
 #define TOKEN_DEF_WORD(a) a,
 #define TOKEN_DEF_SYMBOL(a,b) a,
 #define TOKEN_DEF_SPECIAL(a,b,c) a,
-#include "token_names.h"
+#include "tokenizer/token_names.h"
 #undef TOKEN_DEF_WORD
 #undef TOKEN_DEF_SYMBOL
 #undef TOKEN_DEF_SPECIAL
@@ -44,7 +44,7 @@ inline std::string getTokenString(TokenType type)
 #define TOKEN_DEF_WORD(a) case TokenType::a: return #a;
 #define TOKEN_DEF_SYMBOL(a,b) case TokenType::a: return b;
 #define TOKEN_DEF_SPECIAL(a,b,c) case TokenType::a: return b;
-#include "token_names.h"
+#include "tokenizer/token_names.h"
 #undef TOKEN_DEF_WORD
 #undef TOKEN_DEF_SYMBOL
 #undef TOKEN_DEF_SPECIAL
@@ -60,7 +60,7 @@ inline std::string getTokenString(TokenType type, std::string tokenValue)
 #define TOKEN_DEF_WORD(a) case TokenType::a: return #a;
 #define TOKEN_DEF_SYMBOL(a,b) case TokenType::a: return b;
 #define TOKEN_DEF_SPECIAL(a,b,c) case TokenType::a: return c;
-#include "token_names.h"
+#include "tokenizer/token_names.h"
 #undef TOKEN_DEF_WORD
 #undef TOKEN_DEF_SYMBOL
 #undef TOKEN_DEF_SPECIAL
@@ -210,7 +210,7 @@ public:
 #define TOKEN_DEF_WORD(a) if(compareCaseInsensitive(tokenValue, #a) == 0) {tokenType = TokenType::a; return;}
 #define TOKEN_DEF_SYMBOL(a,b)
 #define TOKEN_DEF_SPECIAL(a,b,c)
-#include "token_names.h"
+#include "tokenizer/token_names.h"
 #undef TOKEN_DEF_WORD
 #undef TOKEN_DEF_SYMBOL
 #undef TOKEN_DEF_SPECIAL
@@ -226,7 +226,7 @@ public:
 #define TOKEN_DEF_WORD(a)
 #define TOKEN_DEF_SYMBOL(a,b) {b, TokenType::a},
 #define TOKEN_DEF_SPECIAL(a,b,c)
-#include "token_names.h"
+#include "tokenizer/token_names.h"
 #undef TOKEN_DEF_WORD
 #undef TOKEN_DEF_SYMBOL
 #undef TOKEN_DEF_SPECIAL

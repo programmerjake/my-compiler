@@ -16,11 +16,11 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#include "x86_64_backend.h"
-#include "x86_64_asm_nodes.h"
-#include "x86_64_rtl_to_asm.h"
-#include "x86_64_asm_writer.h"
-#include "x86_64_register_allocator.h"
+#include "backend/x86_64/x86_64_backend.h"
+#include "backend/x86_64/x86_64_asm_nodes.h"
+#include "backend/x86_64/x86_64_rtl_to_asm.h"
+#include "backend/x86_64/x86_64_asm_writer.h"
+#include "backend/x86_64/x86_64_register_allocator.h"
 
 void BackendX86_64::outputAsAssembly(std::ostream &os, std::list<std::shared_ptr<RTLFunction>> functionsIn) const
 {

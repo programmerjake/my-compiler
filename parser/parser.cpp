@@ -16,14 +16,14 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#include "parser.h"
-#include "../tokenizer/token.h"
-#include "../ssa/ssa_nodes.h"
-#include "../types/types.h"
-#include "../values/values.h"
+#include "parser/parser.h"
+#include "tokenizer/token.h"
+#include "ssa/ssa_nodes.h"
+#include "types/types.h"
+#include "values/values.h"
 #include <unordered_map>
 #include <deque>
-#include "../construct_basic_block_graph.h"
+#include "construct_basic_block_graph.h"
 #include <cassert>
 
 namespace
@@ -32,14 +32,11 @@ struct Symbol final
 {
     std::string name;
     std::shared_ptr<TypeNode> type;
-    VariableLocation location;
-    static VariableLocation makeLocal(std::shared_ptr<SSAFunction> function, std::shared_ptr<TypeNode> type)
+    std::shared_ptr<VariableDescriptor> variable;
+    Symbol(std::string name, std::shared_ptr<TypeNode> type, std::shared_ptr<SSAFunction> function)
+        : name(name), type(type), variable(std::make_shared<VariableDescriptor>(VariableDescriptor::Kind::LocalVariable, type))
     {
-        return VariableLocation(VariableLocation::LocationKind::LocalVariable, function->context->backend->getTypeProperties(type).allocateVariable(function->localVariablesSize));
-    }
-    Symbol(std::string name, std::shared_ptr<TypeNode> type, VariableLocation location)
-        : name(name), type(type), location(location)
-    {
+        variable->allocate(function->localVariablesSize);
     }
 };
 
@@ -106,9 +103,9 @@ private:
             if(symbol == nullptr)
                 throw ParseError("undeclared symbol");
             tokenizer.readNext();
-            std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueLocalVariablePointer>(context, symbol->location.start, symbol->type), nullptr);
+            std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueVariablePointer>(context, VariableLocation(symbol->variable), symbol->type), nullptr);
             currentBasicBlock->instructions.push_back(addressNode);
-            std::shared_ptr<SSANode> valueNode = std::make_shared<SSALoad>(addressNode, symbol->location);
+            std::shared_ptr<SSANode> valueNode = std::make_shared<SSALoad>(addressNode, symbol->variable);
             currentBasicBlock->instructions.push_back(valueNode);
             return valueNode;
         }
@@ -188,7 +185,7 @@ private:
                 std::shared_ptr<SSANode> newNode = assignmentExpression();
                 if(newNode->type != symbol->type)
                     throw ParseError("types don't match for =");
-                std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueLocalVariablePointer>(context, symbol->location.start, symbol->type), nullptr);
+                std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueVariablePointer>(context, VariableLocation(symbol->variable), symbol->type), nullptr);
                 currentBasicBlock->instructions.push_back(addressNode);
                 std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(addressNode, newNode);
                 currentBasicBlock->instructions.push_back(storeNode);
@@ -336,11 +333,11 @@ private:
             std::shared_ptr<ValueNode> initialValue = theType->makeDefaultValue();
             if(initialValue == nullptr)
                 throw ParseError("invalid type for variable");
-            std::shared_ptr<Symbol> symbol = std::make_shared<Symbol>(name, theType, Symbol::makeLocal(function, theType));
+            std::shared_ptr<Symbol> symbol = std::make_shared<Symbol>(name, theType, function);
             addSymbolToTopSymbolTable(symbol);
-            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(initialValue, symbol->location);
+            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(initialValue, symbol->variable);
             currentBasicBlock->instructions.push_back(node);
-            std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueLocalVariablePointer>(context, symbol->location.start, symbol->type), nullptr);
+            std::shared_ptr<SSANode> addressNode = std::make_shared<SSAConstant>(std::make_shared<ValueVariablePointer>(context, VariableLocation(symbol->variable), symbol->type), nullptr);
             currentBasicBlock->instructions.push_back(addressNode);
             std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(addressNode, node);
             currentBasicBlock->instructions.push_back(storeNode);

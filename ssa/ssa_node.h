@@ -25,10 +25,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "../context.h"
-#include "../types/type.h"
-#include "../values/value.h"
-#include "../util/spill_location.h"
+#include "context.h"
+#include "types/type.h"
+#include "values/value.h"
+#include "util/variable.h"
 
 class SSANodeVisitor;
 class SSAControlTransfer;
@@ -191,9 +191,9 @@ public:
     }
 };
 
-#include "ssa_visitor.h"
-#include "ssa_phi.h"
-#include "ssa_control_transfer.h"
+#include "ssa/ssa_visitor.h"
+#include "ssa/ssa_phi.h"
+#include "ssa/ssa_control_transfer.h"
 
 class SSAFunction : public std::enable_shared_from_this<SSAFunction>
 {

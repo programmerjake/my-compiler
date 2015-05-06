@@ -19,7 +19,7 @@
 #ifndef TYPES_H_INCLUDED
 #define TYPES_H_INCLUDED
 
-#include "type.h"
-#include "type_builtin.h"
+#include "types/type.h"
+#include "types/type_builtin.h"
 
 #endif // TYPES_H_INCLUDED

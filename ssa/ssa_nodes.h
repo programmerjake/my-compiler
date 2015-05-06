@@ -19,12 +19,12 @@
 #ifndef SSA_NODES_H_INCLUDED
 #define SSA_NODES_H_INCLUDED
 
-#include "ssa_node.h"
-#include "ssa_visitor.h"
-#include "ssa_const.h"
-#include "ssa_move.h"
-#include "ssa_control_transfer.h"
-#include "ssa_phi.h"
-#include "ssa_compare.h"
+#include "ssa/ssa_node.h"
+#include "ssa/ssa_visitor.h"
+#include "ssa/ssa_const.h"
+#include "ssa/ssa_move.h"
+#include "ssa/ssa_control_transfer.h"
+#include "ssa/ssa_phi.h"
+#include "ssa/ssa_compare.h"
 
 #endif // SSA_NODES_H_INCLUDED

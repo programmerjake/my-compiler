@@ -19,13 +19,13 @@
 #ifndef X86_64_REGISTER_ALLOCATOR_H_INCLUDED
 #define X86_64_REGISTER_ALLOCATOR_H_INCLUDED
 
-#include "x86_64_asm_nodes.h"
+#include "backend/x86_64/x86_64_asm_nodes.h"
 #include <unordered_set>
 #include <unordered_map>
 #include <list>
 #include <algorithm>
 #include <vector>
-#include "../../util/random_access_list.h"
+#include "util/random_access_list.h"
 #include <iostream>
 
 class X86_64RegisterAllocator final
@@ -323,7 +323,7 @@ public:
                         }
                         else
                         {
-                            if(spillLocation.locationKind != SpillLocation::LocationKind::LocalVariable)
+                            if(spillLocation.kind != SpillLocation::Kind::LocalVariable)
                                 throw std::runtime_error("register spill location kind not implemented");
                             std::shared_ptr<X86_64AsmNode> node = std::make_shared<X86_64AsmNodeLoadLocal>(liveRange->originalRegister, spillLocation.start);
                             block->instructions.insert(pos, node);
@@ -351,7 +351,7 @@ public:
                     {
                         if(!liveRange->isConstant || liveRange->constantValue == nullptr) // don't store constants
                         {
-                            if(spillLocation.locationKind != SpillLocation::LocationKind::LocalVariable)
+                            if(spillLocation.kind != SpillLocation::Kind::LocalVariable)
                                 throw std::runtime_error("register spill location kind not implemented");
                             std::shared_ptr<X86_64AsmNode> node = std::make_shared<X86_64AsmNodeStoreLocal>(spillLocation.start, liveRange->originalRegister);
                             block->instructions.insert(pos + 1, node);

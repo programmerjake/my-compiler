@@ -19,12 +19,12 @@
 #ifndef X86_64_RTL_TO_ASM_H_INCLUDED
 #define X86_64_RTL_TO_ASM_H_INCLUDED
 
-#include "../../rtl/rtl_nodes.h"
-#include "x86_64_asm_nodes.h"
+#include "rtl/rtl_nodes.h"
+#include "backend/x86_64/x86_64_asm_nodes.h"
 #include <unordered_map>
 #include <unordered_set>
-#include "../../construct_liveness_info.h"
-#include "x86_64_construct_liveness_info.h"
+#include "construct_liveness_info.h"
+#include "backend/x86_64/x86_64_construct_liveness_info.h"
 
 class X86_64ConvertRTLToAsm final : public RTLNodeVisitor
 {

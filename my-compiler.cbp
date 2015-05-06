@@ -44,6 +44,7 @@
 			<Add option="-std=c++11" />
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
+			<Add directory="." />
 		</Compiler>
 		<Unit filename="backend/backend.h">
 			<Option target="Debug" />
@@ -195,7 +196,7 @@
 			<Option target="Release" />
 		</Unit>
 		<Unit filename="util/random_access_list.h" />
-		<Unit filename="util/spill_location.h" />
+		<Unit filename="util/variable.h" />
 		<Unit filename="values/value.h">
 			<Option target="Debug" />
 			<Option target="Release" />

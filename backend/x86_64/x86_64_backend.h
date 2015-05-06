@@ -19,7 +19,7 @@
 #ifndef X86_64_BACKEND_H_INCLUDED
 #define X86_64_BACKEND_H_INCLUDED
 
-#include "../backend.h"
+#include "backend/backend.h"
 
 class BackendX86_64 final : public Backend
 {

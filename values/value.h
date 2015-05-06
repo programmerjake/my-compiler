@@ -19,14 +19,15 @@
 #ifndef VALUE_H_INCLUDED
 #define VALUE_H_INCLUDED
 
-#include "../context.h"
-#include "../types/type.h"
-#include "../types/type_builtin.h"
+#include "context.h"
+#include "types/type.h"
+#include "types/type_builtin.h"
+#include "util/variable.h"
 
 class ValueNode;
 class ValueBoolean;
 class ValueUnknown;
-class ValueLocalVariablePointer;
+class ValueVariablePointer;
 class ValueNullPointer;
 class ValueNodeVisitor
 {
@@ -34,7 +35,7 @@ public:
     virtual ~ValueNodeVisitor() = default;
     virtual void visitValueBoolean(std::shared_ptr<ValueBoolean> node) = 0;
     virtual void visitValueUnknown(std::shared_ptr<ValueUnknown> node) = 0;
-    virtual void visitValueLocalVariablePointer(std::shared_ptr<ValueLocalVariablePointer> node) = 0;
+    virtual void visitValueVariablePointer(std::shared_ptr<ValueVariablePointer> node) = 0;
     virtual void visitValueNullPointer(std::shared_ptr<ValueNullPointer> node) = 0;
 };
 
@@ -118,24 +119,24 @@ public:
     }
 };
 
-class ValueLocalVariablePointer final : public ValueNode
+class ValueVariablePointer final : public ValueNode
 {
 public:
-    std::uint64_t start; /// byte count into local variables
-    explicit ValueLocalVariablePointer(CompilerContext *context, std::uint64_t start, std::shared_ptr<TypeNode> variableType)
-        : ValueNode(context, TypePointer::make(variableType), false), start(start)
+    VariableLocation location;
+    explicit ValueVariablePointer(CompilerContext *context, VariableLocation location, std::shared_ptr<TypeNode> variableType)
+        : ValueNode(context, TypePointer::make(variableType), false), location(location)
     {
     }
     virtual void visit(ValueNodeVisitor &visitor) override
     {
-        visitor.visitValueLocalVariablePointer(std::static_pointer_cast<ValueLocalVariablePointer>(shared_from_this()));
+        visitor.visitValueVariablePointer(std::static_pointer_cast<ValueVariablePointer>(shared_from_this()));
     }
     virtual bool operator ==(const ValueNode &rt) const override
     {
-        const ValueLocalVariablePointer *prt = dynamic_cast<const ValueLocalVariablePointer *>(&rt);
+        const ValueVariablePointer *prt = dynamic_cast<const ValueVariablePointer *>(&rt);
         if(prt == nullptr)
             return false;
-        return start == prt->start;
+        return location == prt->location;
     }
 };
 

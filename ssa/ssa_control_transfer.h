@@ -16,13 +16,13 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#include "ssa_node.h"
+#include "ssa/ssa_node.h"
 #ifndef SSA_CONTROL_TRANSFER_H_INCLUDED
 #define SSA_CONTROL_TRANSFER_H_INCLUDED
 
-#include "../types/type_builtin.h"
-#include "ssa_visitor.h"
-#include "../values/values.h"
+#include "types/type_builtin.h"
+#include "ssa/ssa_visitor.h"
+#include "values/values.h"
 
 class SSAControlTransfer : public SSANode // can't have a value
 {

@@ -19,7 +19,7 @@
 #ifndef X86_64_ASM_WRITER_H_INCLUDED
 #define X86_64_ASM_WRITER_H_INCLUDED
 
-#include "x86_64_asm_nodes.h"
+#include "backend/x86_64/x86_64_asm_nodes.h"
 #include <ostream>
 #include <string>
 #include <sstream>
@@ -142,9 +142,9 @@ public:
     {
         if(std::shared_ptr<ValueBoolean> valueBoolean = std::dynamic_pointer_cast<ValueBoolean>(node->value))
             os << "    mov %" << node->dest->name << ", " << (valueBoolean->value ? "1" : "0") << "\n";
-        else if(std::shared_ptr<ValueLocalVariablePointer> valueLocalVariablePointer = std::dynamic_pointer_cast<ValueLocalVariablePointer>(node->value))
+        else if(std::shared_ptr<ValueVariablePointer> valueVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(node->value))
         {
-            os << "    lea %" << node->dest->name << ", [%rbp - " << (alignedLocalsSize - valueLocalVariablePointer->start) << "]\n";
+            os << "    lea %" << node->dest->name << ", [%rbp - " << (alignedLocalsSize - valueVariablePointer->location.getStart()) << "]\n";
         }
         else if(std::shared_ptr<ValueNullPointer> valueNullPointer = std::dynamic_pointer_cast<ValueNullPointer>(node->value))
             os << "    mov %" << node->dest->name << ", 0\n";

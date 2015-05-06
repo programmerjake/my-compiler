@@ -38,6 +38,22 @@ struct TypeProperties final
         memoryAllocated += size;
         return retval;
     }
+    bool good() const
+    {
+        return size > 0;
+    }
+    TypeProperties()
+        : alignment(1), size(0)
+    {
+    }
+    TypeProperties(std::uint64_t size)
+        : alignment(size), size(size)
+    {
+    }
+    TypeProperties(std::uint64_t alignment, std::uint64_t size)
+        : alignment(alignment), size(size)
+    {
+    }
 };
 
 class TypeNode;

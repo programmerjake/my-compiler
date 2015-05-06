@@ -43,7 +43,7 @@ public:
     virtual void visitTypePointer(std::shared_ptr<TypePointer> node) = 0;
 };
 
-#include "../context.h"
+#include "context.h"
 
 class TypeNode : public std::enable_shared_from_this<TypeNode>
 {
@@ -103,6 +103,18 @@ public:
     virtual std::shared_ptr<TypeNode> dereference()
     {
         return nullptr;
+    }
+private:
+    TypeProperties typeProperties;
+    bool hasTypeProperties;
+public:
+    TypeProperties getTypeProperties()
+    {
+        if(hasTypeProperties)
+            return typeProperties;
+        typeProperties = context->backend->getTypeProperties(shared_from_this());
+        hasTypeProperties = true;
+        return typeProperties;
     }
 };
 

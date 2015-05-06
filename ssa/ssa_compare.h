@@ -19,7 +19,7 @@
 #ifndef SSA_COMPARE_H_INCLUDED
 #define SSA_COMPARE_H_INCLUDED
 
-#include "ssa_node.h"
+#include "ssa/ssa_node.h"
 
 class SSACompare final : public SSANode
 {
@@ -94,9 +94,9 @@ public:
                 return std::make_shared<ValueBoolean>(context, false);
             }
         }
-        std::shared_ptr<ValueLocalVariablePointer> lhsValueLocalVariablePointer = std::dynamic_pointer_cast<ValueLocalVariablePointer>(lhsValue);
-        std::shared_ptr<ValueLocalVariablePointer> rhsValueLocalVariablePointer = std::dynamic_pointer_cast<ValueLocalVariablePointer>(rhsValue);
-        if(lhsValueLocalVariablePointer && rhsValueNullPointer)
+        std::shared_ptr<ValueVariablePointer> lhsValueVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(lhsValue);
+        std::shared_ptr<ValueVariablePointer> rhsValueVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(rhsValue);
+        if(lhsValueVariablePointer && rhsValueNullPointer)
         {
             switch(compareOperator)
             {
@@ -114,7 +114,7 @@ public:
                 return std::make_shared<ValueBoolean>(context, false);
             }
         }
-        if(lhsValueNullPointer && rhsValueLocalVariablePointer)
+        if(lhsValueNullPointer && rhsValueVariablePointer)
         {
             switch(compareOperator)
             {
@@ -132,22 +132,24 @@ public:
                 return std::make_shared<ValueBoolean>(context, false);
             }
         }
-        if(lhsValueLocalVariablePointer && rhsValueLocalVariablePointer)
+        if(lhsValueVariablePointer && rhsValueVariablePointer)
         {
+            if(lhsValueVariablePointer->location.variable != rhsValueVariablePointer->location.variable)
+                return nullptr;
             switch(compareOperator)
             {
             case CompareOperator::E:
-                return std::make_shared<ValueBoolean>(context, lhsValueLocalVariablePointer->start == rhsValueLocalVariablePointer->start);
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset == rhsValueVariablePointer->location.offset);
             case CompareOperator::G:
-                return std::make_shared<ValueBoolean>(context, lhsValueLocalVariablePointer->start > rhsValueLocalVariablePointer->start);
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset > rhsValueVariablePointer->location.offset);
             case CompareOperator::GE:
-                return std::make_shared<ValueBoolean>(context, lhsValueLocalVariablePointer->start >= rhsValueLocalVariablePointer->start);
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset >= rhsValueVariablePointer->location.offset);
             case CompareOperator::L:
-                return std::make_shared<ValueBoolean>(context, lhsValueLocalVariablePointer->start < rhsValueLocalVariablePointer->start);
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset < rhsValueVariablePointer->location.offset);
             case CompareOperator::LE:
-                return std::make_shared<ValueBoolean>(context, lhsValueLocalVariablePointer->start <= rhsValueLocalVariablePointer->start);
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset <= rhsValueVariablePointer->location.offset);
             default: // NE
-                return std::make_shared<ValueBoolean>(context, lhsValueLocalVariablePointer->start != rhsValueLocalVariablePointer->start);
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset != rhsValueVariablePointer->location.offset);
             }
         }
         return nullptr;

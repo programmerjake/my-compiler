@@ -16,7 +16,7 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#include "ssa_node.h"
+#include "ssa/ssa_node.h"
 #ifndef SSA_VISITOR_H_INCLUDED
 #define SSA_VISITOR_H_INCLUDED
 
