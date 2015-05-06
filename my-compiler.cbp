@@ -50,6 +50,14 @@
 			<Option target="Debug" />
 			<Option target="Release" />
 		</Unit>
+		<Unit filename="backend/x86_32/x86_32_asm_node.h" />
+		<Unit filename="backend/x86_32/x86_32_asm_nodes.h" />
+		<Unit filename="backend/x86_32/x86_32_asm_writer.h" />
+		<Unit filename="backend/x86_32/x86_32_backend.cpp" />
+		<Unit filename="backend/x86_32/x86_32_backend.h" />
+		<Unit filename="backend/x86_32/x86_32_construct_liveness_info.h" />
+		<Unit filename="backend/x86_32/x86_32_register_allocator.h" />
+		<Unit filename="backend/x86_32/x86_32_rtl_to_asm.h" />
 		<Unit filename="backend/x86_64/x86_64_asm_node.h">
 			<Option target="Debug" />
 			<Option target="Release" />

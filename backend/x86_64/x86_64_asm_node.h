@@ -395,7 +395,7 @@ private:
     X86_64AsmRegister::PhysicalRegisterKindMask getMask() const
     {
         if(isEmpty || !isGood)
-            return X86_64AsmRegister::PhysicalRegisterKindMask::None();
+            throw std::runtime_error("invalid type mask");
         switch(sizeInBytes)
         {
         case 1:
@@ -415,7 +415,7 @@ private:
                 return X86_64AsmRegister::PhysicalRegisterKindMask::Float64();
             return X86_64AsmRegister::PhysicalRegisterKindMask::Int64();
         }
-        return X86_64AsmRegister::PhysicalRegisterKindMask::None();
+        throw std::runtime_error("invalid type mask");
     }
     X86_64TypeToPhysicalRegisterKindMask &visit(std::shared_ptr<TypeNode> node)
     {

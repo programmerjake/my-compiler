@@ -30,30 +30,8 @@
 #include "convert_ssa_to_rtl.h"
 #include "backend/backend.h"
 #include "backend/x86_64/x86_64_backend.h"
-
-std::shared_ptr<SSAFunction> makeFunction(CompilerContext *context)
-{
-    auto retval = std::make_shared<SSAFunction>(context);
-    retval->startBlock = std::make_shared<SSABasicBlock>(context);
-    retval->blocks.push_back(retval->startBlock);
-    retval->endBlock = std::make_shared<SSABasicBlock>(context);
-    auto loopBlock = std::make_shared<SSABasicBlock>(context);
-    retval->blocks.push_back(loopBlock);
-    retval->blocks.push_back(retval->endBlock);
-    auto startBlockA = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, false), nullptr);
-    retval->startBlock->instructions.push_back(startBlockA);
-    retval->startBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, loopBlock);
-    retval->startBlock->instructions.push_back(retval->startBlock->controlTransferInstruction);
-    auto loopBlockCond = std::make_shared<SSAPhi>(TypeBoolean::make(context), startBlockA->spillLocation);
-    loopBlock->instructions.push_back(loopBlockCond);
-    auto loopBlockA = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, true), nullptr);
-    loopBlock->instructions.push_back(loopBlockA);
-    loopBlockCond->inputs.push_back(SSAPhi::PhiInput{loopBlockA, loopBlock});
-    loopBlockCond->inputs.push_back(SSAPhi::PhiInput{startBlockA, retval->startBlock});
-    loopBlock->controlTransferInstruction = std::make_shared<SSAConditionalJump>(context, loopBlockCond, retval->endBlock, loopBlock);
-    loopBlock->instructions.push_back(loopBlock->controlTransferInstruction);
-    return retval;
-}
+#include "backend/x86_32/x86_32_backend.h"
+#include <getopt.h>
 
 std::string getSourceCode()
 {
@@ -68,45 +46,129 @@ R"(for(boolean x = true, y = true, z = true; z; z = y, y = x, x = false)
 )";
 }
 
+struct ArchitectureDescriptor final
+{
+    const char *name;
+    std::shared_ptr<Backend> (*backendMaker)();
+};
+
+const ArchitectureDescriptor architectures[] =
+{
+    {"x86_64", []()->std::shared_ptr<Backend>
+        {
+            return std::make_shared<BackendX86_64>(BackendX86_64::AssemblyDialect::GAS_Intel);
+        }
+    },
+    {"x86_32", []()->std::shared_ptr<Backend>
+        {
+            return std::make_shared<BackendX86_32>(BackendX86_32::AssemblyDialect::GAS_Intel);
+        }
+    },
+};
+
 int usage(bool isError)
 {
     std::ostream *pos = &std::cout;
     if(isError)
         pos = &std::cerr;
-    *pos << "Usage : my-compiler [-|<input_file>]" << std::endl;
+    *pos << "Usage : my-compiler [options] [-|<input_file>]\n"
+        "Options:\n"
+        "-h|--help                       show this help.\n"
+        "-a <arch>|--arch=<arch>         use the specified architecture.\n"
+        "\n"
+        "Architectures:\n";
+    const char *seperator = "";
+    for(const ArchitectureDescriptor &arch : architectures)
+    {
+        *pos << seperator << arch.name;
+        seperator = " ";
+    }
+    *pos << std::endl;
     if(isError)
         return 1;
     return 0;
 }
 
+int usageAndError(std::string msg)
+{
+    std::cerr << msg << "\n";
+    return usage(true);
+}
+
 int main(int argc, char **argv)
 {
-    BackendX86_64 backend(BackendX86_64::AssemblyDialect::GAS_Intel);
-    CompilerContext context(&backend);
+    std::shared_ptr<Backend> backend;
+    std::shared_ptr<CompilerContext> context;
     std::shared_ptr<SSAFunction> fn;
     try
     {
         std::istringstream is(getSourceCode());
         std::istream *pis = &is;
-        if(argc > 1)
+        std::string archName = "";
+        bool gotArch = false;
+        for(;;)
         {
-            if(argc > 2)
-                return usage(true);
-            std::string arg = argv[1];
-            if(arg == "--help" || arg == "-h")
+            static const option longOptions[] =
             {
+                {"help", no_argument, nullptr, 'h'},
+                {"arch", required_argument, nullptr, 'a'},
+                {nullptr, 0, nullptr, 0}
+            };
+            int longOptionIndex = -1;
+            int c = getopt_long(argc, argv, "ha:", longOptions, &longOptionIndex);
+            if(c == -1)
+                break;
+            switch(c)
+            {
+            case 'h':
                 return usage(false);
-            }
-            if(arg == "-")
-                pis = &std::cin;
-            else
-            {
-                pis = new std::ifstream(arg.c_str());
-                if(!*pis)
-                    return usage(true);
+            case 'a':
+                if(gotArch)
+                {
+                    return usageAndError("too many --arch options");
+                }
+                archName = optarg;
+                gotArch = true;
+                break;
+            default:
+                return usageAndError("invalid option");
             }
         }
-        fn = parse(&context, *pis, pis != &std::cin);
+        std::string fileName = "";
+        if(optind < argc)
+        {
+            fileName = argv[optind];
+            if(argc - optind > 1)
+                return usageAndError("too many input files");
+        }
+        if(archName == "")
+            archName = architectures[0].name;
+        for(const ArchitectureDescriptor &arch : architectures)
+        {
+            if(archName == arch.name)
+            {
+                backend = arch.backendMaker();
+                break;
+            }
+        }
+        if(backend == nullptr)
+        {
+            return usageAndError("invalid architecture");
+        }
+        context = std::make_shared<CompilerContext>(backend.get());
+        if(fileName == "")
+            pis = &is;
+        else if(fileName == "-")
+            pis = &std::cin;
+        else
+        {
+            pis = new std::ifstream(fileName.c_str());
+            if(!*pis)
+            {
+                return usageAndError("can't open input file");
+            }
+        }
+        fn = parse(context.get(), *pis, pis != &std::cin);
     }
     catch(ParseError &e)
     {
@@ -118,6 +180,6 @@ int main(int argc, char **argv)
     ConstantPropagationAndDeadCodeElimination().visitSSAFunction(fn);
     ControlFlowSimplification().visitSSAFunction(fn);
     std::shared_ptr<RTLFunction> rtlFn = ConvertSSAToRTL().visitSSAFunction(fn);
-    backend.outputAsAssembly(std::cout, std::list<std::shared_ptr<RTLFunction>>{rtlFn});
+    backend->outputAsAssembly(std::cout, std::list<std::shared_ptr<RTLFunction>>{rtlFn});
     return 0;
 }
