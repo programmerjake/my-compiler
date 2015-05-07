@@ -37,7 +37,7 @@ struct Symbol final
         : name(name), type(type)
     {
         addressNode = std::make_shared<SSAAllocA>(type);
-        function->startBlock->instructions.push_front(addressNode);
+        function->startBlock->instructions.push_front(addressNode); // start block doesn't have any phi instructions so we don't need to insert after them
     }
 };
 

@@ -29,6 +29,7 @@
 #include "types/type.h"
 #include "values/value.h"
 #include "util/variable.h"
+#include "util/random_access_list.h"
 
 class SSANodeVisitor;
 class SSAControlTransfer;
@@ -100,7 +101,7 @@ public:
     std::list<std::weak_ptr<SSABasicBlock>> dominatedBlocks;
     std::list<std::weak_ptr<SSABasicBlock>> destBlocks;
     std::shared_ptr<SSAControlTransfer> controlTransferInstruction;
-    std::list<std::shared_ptr<SSANode>> instructions; /// all SSAPhi nodes must be first and the only allowed SSAControlTransfer must be last
+    random_access_list<std::shared_ptr<SSANode>> instructions; /// all SSAPhi nodes must be first and the only allowed SSAControlTransfer must be last
     void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, SSANode::ReplacementNode> &replacements)
     {
         auto iter = replacements.find(std::static_pointer_cast<SSANode>(controlTransferInstruction));
