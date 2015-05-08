@@ -46,12 +46,11 @@ if(b)
 )";
 #else
     return
-R"(for(boolean x = true, y = true, z = true; z; z = y, y = x, x = false)
+R"(for(boolean x = true, y = true, z = true; z; z = y, y = x)
 {
-    void *a = null;
-    constant void *b;
-    if(a != b)
-        y = false;
+    boolean *a = &x;
+    if(a == &x)
+        *a = false;
 }
 )";
 #endif
@@ -186,9 +185,9 @@ int main(int argc, char **argv)
         std::cerr << "\nParse Error : " << e.what() << std::endl;
         return 1;
     }
+    std::cout << std::endl << std::endl;
     ConstructBasicBlockGraphVisitor().visitSSAFunction(fn);
     fn->verify();
-    std::cout << std::endl << std::endl;
     for(std::size_t i = 0; i < 3; i++)
     {
         MemoryToRegister().visitSSAFunction(fn);

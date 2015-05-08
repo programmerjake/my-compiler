@@ -40,8 +40,12 @@ public:
     {
         ConstructBasicBlockGraphVisitor().visitSSAFunction(function);
         bool done = false;
+        DumpVisitor dumper(std::cout);
         while(!done)
         {
+            function->verify();
+            dumper.visitSSAFunction(function);
+            std::cout << std::endl << std::endl;
             done = true;
             for(std::shared_ptr<SSABasicBlock> firstBlock : function->blocks)
             {
@@ -53,10 +57,12 @@ public:
                     if(firstBlock->instructions.size() != 1)
                         continue;
                     function->replaceBlock(firstBlock, secondBlock);
+                    std::cout << "replaceBlock(" << dumper.getSSABasicBlockDisplayValue(firstBlock) << ", " << dumper.getSSABasicBlockDisplayValue(secondBlock) << ")" << std::endl;
                     done = false;
                     break;
                 }
                 function->mergeBlocks(firstBlock, secondBlock);
+                std::cout << "mergeBlocks(" << dumper.getSSABasicBlockDisplayValue(firstBlock) << ", " << dumper.getSSABasicBlockDisplayValue(secondBlock) << ")" << std::endl;
                 done = false;
                 break;
             }

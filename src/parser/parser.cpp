@@ -84,19 +84,51 @@ private:
     {
         symbolTables.pop_front();
     }
+    struct Value final
+    {
+        enum class Kind
+        {
+            LValue,
+            RValue,
+        };
+        std::shared_ptr<SSANode> node;
+        std::shared_ptr<TypeNode> type;
+        Kind kind;
+        Value(std::shared_ptr<SSANode> node, std::shared_ptr<TypeNode> type, Kind kind)
+            : node(node), type(type), kind(kind)
+        {
+        }
+    };
+    std::vector<Value> valueStack;
 
-    std::shared_ptr<SSANode> topLevelExpression()
+    void convertValueToRValue()
+    {
+        switch(valueStack.back().kind)
+        {
+        case Value::Kind::LValue:
+        {
+            std::shared_ptr<SSANode> node = std::make_shared<SSALoad>(valueStack.back().node, nullptr);
+            currentBasicBlock->instructions.push_back(node);
+            valueStack.back() = Value(node, valueStack.back().type, Value::Kind::RValue);
+            break;
+        }
+        case Value::Kind::RValue:
+            break;
+        }
+    }
+
+    void topLevelExpression()
     {
         switch(tokenizer.tokenType)
         {
         case TokenType::LParen:
         {
             tokenizer.readNext();
-            std::shared_ptr<SSANode> retval = expression();
+            expression();
             if(tokenizer.tokenType != TokenType::RParen)
                 throw ParseError("expected )");
             tokenizer.readNext();
-            return retval;
+            return;
         }
         case TokenType::Identifier:
         {
@@ -104,39 +136,70 @@ private:
             if(symbol == nullptr)
                 throw ParseError("undeclared symbol");
             tokenizer.readNext();
-            std::shared_ptr<SSANode> valueNode = std::make_shared<SSALoad>(symbol->addressNode, nullptr);
-            currentBasicBlock->instructions.push_back(valueNode);
-            return valueNode;
+            valueStack.push_back(Value(symbol->addressNode, symbol->type, Value::Kind::LValue));
+            return;
         }
         case TokenType::False:
         {
             std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, false), nullptr);
             currentBasicBlock->instructions.push_back(node);
             tokenizer.readNext();
-            return node;
+            valueStack.push_back(Value(node, TypeBoolean::make(context), Value::Kind::RValue));
+            return;
         }
         case TokenType::True:
         {
             std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(std::make_shared<ValueBoolean>(context, true), nullptr);
             currentBasicBlock->instructions.push_back(node);
             tokenizer.readNext();
-            return node;
+            valueStack.push_back(Value(node, TypeBoolean::make(context), Value::Kind::RValue));
+            return;
         }
         case TokenType::Null:
         {
             std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(std::make_shared<ValueNullPointer>(context), nullptr);
             currentBasicBlock->instructions.push_back(node);
             tokenizer.readNext();
-            return node;
+            valueStack.push_back(Value(node, node->type, Value::Kind::RValue));
+            return;
         }
         default:
-            throw ParseError("expected (, id, true, or false");
+            throw ParseError("expected (, id, true, false, or null");
         }
     }
 
-    std::shared_ptr<SSANode> comparisonExpression()
+    void prefixOperator()
     {
-        std::shared_ptr<SSANode> retval = topLevelExpression();
+        if(tokenizer.tokenType == TokenType::Star)
+        {
+            tokenizer.readNext();
+            prefixOperator();
+            convertValueToRValue();
+            if(valueStack.back().type->dereference() == nullptr)
+                throw ParseError("can't dereference a non-pointer");
+            valueStack.back() = Value(valueStack.back().node, valueStack.back().type->dereference(), Value::Kind::LValue);
+            return;
+        }
+        if(tokenizer.tokenType == TokenType::Ampersand)
+        {
+            tokenizer.readNext();
+            prefixOperator();
+            switch(valueStack.back().kind)
+            {
+            case Value::Kind::LValue:
+                break;
+            case Value::Kind::RValue:
+                throw ParseError("can't take address of a rvalue");
+            }
+            valueStack.back() = Value(valueStack.back().node, TypePointer::make(valueStack.back().type), Value::Kind::RValue);
+            return;
+        }
+        topLevelExpression();
+    }
+
+    void comparisonExpression()
+    {
+        prefixOperator();
         SSACompare::CompareOperator compareOperator;
         switch(tokenizer.tokenType)
         {
@@ -159,57 +222,61 @@ private:
             compareOperator = SSACompare::CompareOperator::L;
             break;
         default:
-            return retval;
+            return;
         }
         tokenizer.readNext();
-        std::shared_ptr<SSANode> lhs = retval;
-        std::shared_ptr<SSANode> rhs = topLevelExpression();
-        retval = std::make_shared<SSACompare>(lhs, compareOperator, rhs, nullptr);
+        convertValueToRValue();
+        std::shared_ptr<SSANode> lhs = valueStack.back().node;
+        valueStack.pop_back();
+        prefixOperator();
+        convertValueToRValue();
+        std::shared_ptr<SSANode> rhs = valueStack.back().node;
+        valueStack.pop_back();
+        std::shared_ptr<SSANode> retval = std::make_shared<SSACompare>(lhs, compareOperator, rhs, nullptr);
         currentBasicBlock->instructions.push_back(retval);
-        return retval;
+        valueStack.push_back(Value(retval, retval->type, Value::Kind::RValue));
+        return;
     }
 
-    std::shared_ptr<SSANode> assignmentExpression()
+    void assignmentExpression()
     {
-        if(tokenizer.tokenType == TokenType::Identifier)
+        comparisonExpression();
+        if(tokenizer.tokenType == TokenType::Equal)
         {
-            std::string name = tokenizer.tokenValue;
+            Value variable = valueStack.back();
+            switch(variable.kind)
+            {
+            case Value::Kind::LValue:
+                break;
+            case Value::Kind::RValue:
+                throw ParseError("can't assign to rvalue");
+            }
             tokenizer.readNext();
-            if(tokenizer.tokenType == TokenType::Equal)
-            {
-                std::shared_ptr<Symbol> symbol = findSymbolInSymbolTables(name);
-                if(symbol == nullptr)
-                    throw ParseError("undeclared symbol");
-                tokenizer.readNext();
-                std::shared_ptr<SSANode> newNode = assignmentExpression();
-                if(newNode->type != symbol->type)
-                    throw ParseError("types don't match for =");
-                std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(symbol->addressNode, newNode);
-                currentBasicBlock->instructions.push_back(storeNode);
-                return newNode;
-            }
-            else
-            {
-                tokenizer.putBack(TokenType::Identifier, name);
-            }
+            assignmentExpression();
+            convertValueToRValue();
+            Value newValue = valueStack.back();
+            valueStack.pop_back();
+            if(newValue.type != variable.type)
+                throw ParseError("types don't match for =");
+            std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(variable.node, newValue.node);
+            currentBasicBlock->instructions.push_back(storeNode);
         }
-        return comparisonExpression();
     }
 
-    std::shared_ptr<SSANode> commaExpression(bool ignoreComma)
+    void commaExpression(bool ignoreComma)
     {
-        std::shared_ptr<SSANode> retval = assignmentExpression();
+        assignmentExpression();
         while(tokenizer.tokenType == TokenType::Comma && !ignoreComma)
         {
             tokenizer.readNext();
-            retval = assignmentExpression();
+            valueStack.pop_back();
+            assignmentExpression();
         }
-        return retval;
     }
 
-    std::shared_ptr<SSANode> expression(bool ignoreComma = false)
+    void expression(bool ignoreComma = false)
     {
-        return commaExpression(ignoreComma);
+        commaExpression(ignoreComma);
     }
 
     std::shared_ptr<TypeNode> topLevelType()
@@ -337,6 +404,7 @@ private:
             std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(symbol->addressNode, node);
             currentBasicBlock->instructions.push_back(storeNode);
             expression(true);
+            valueStack.pop_back();
             if(tokenizer.tokenType == terminatingToken)
             {
                 tokenizer.readNext();
@@ -355,9 +423,12 @@ private:
         tokenizer.readNext();
         if(tokenizer.tokenType != TokenType::LParen)
             throw ParseError("expected (");
-        std::shared_ptr<SSANode> condition = expression(); // handles parenthesis
-        if(condition->type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
+        expression(); // handles parenthesis
+        convertValueToRValue();
+        std::shared_ptr<SSANode> condition = valueStack.back().node;
+        if(valueStack.back().type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
             throw ParseError("if condition type must be boolean");
+        valueStack.pop_back();
         std::shared_ptr<SSABasicBlock> startBlock = currentBasicBlock;
         std::shared_ptr<SSABasicBlock> thenBlock = std::make_shared<SSABasicBlock>(context);
         std::shared_ptr<SSABasicBlock> elseBlock = std::make_shared<SSABasicBlock>(context);
@@ -405,9 +476,12 @@ private:
         tokenizer.readNext();
         if(tokenizer.tokenType != TokenType::LParen)
             throw ParseError("expected (");
-        std::shared_ptr<SSANode> condition = expression(); // handles parenthesis
-        if(condition->type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
+        expression(); // handles parenthesis
+        convertValueToRValue();
+        std::shared_ptr<SSANode> condition = valueStack.back().node;
+        if(valueStack.back().type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
             throw ParseError("do while condition type must be boolean");
+        valueStack.pop_back();
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAConditionalJump>(context, condition, loopBlock, endBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = endBlock;
@@ -432,9 +506,12 @@ private:
         function->blocks.push_back(currentBasicBlock);
         if(tokenizer.tokenType != TokenType::LParen)
             throw ParseError("expected (");
-        std::shared_ptr<SSANode> condition = expression(); // handles parenthesis
-        if(condition->type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
+        expression(); // handles parenthesis
+        convertValueToRValue();
+        std::shared_ptr<SSANode> condition = valueStack.back().node;
+        if(valueStack.back().type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
             throw ParseError("while condition type must be boolean");
+        valueStack.pop_back();
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAConditionalJump>(context, condition, loopBlock, endBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = loopBlock;
@@ -465,17 +542,21 @@ private:
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = conditionBlock;
         function->blocks.push_back(currentBasicBlock);
-        std::shared_ptr<SSANode> condition = expression();
+        expression(); // handles parenthesis
+        convertValueToRValue();
+        std::shared_ptr<SSANode> condition = valueStack.back().node;
+        if(valueStack.back().type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
+            throw ParseError("for condition type must be boolean");
+        valueStack.pop_back();
         if(tokenizer.tokenType != TokenType::Semicolon)
             throw ParseError("expected ;");
         tokenizer.readNext();
-        if(condition->type->toNonVolatile()->toNonConstant() != TypeBoolean::make(context))
-            throw ParseError("for condition type must be boolean");
         currentBasicBlock->controlTransferInstruction = std::make_shared<SSAConditionalJump>(context, condition, loopBlock, endBlock);
         currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         currentBasicBlock = updateBlock;
         function->blocks.push_back(currentBasicBlock);
         expression();
+        valueStack.pop_back();
         if(tokenizer.tokenType != TokenType::RParen)
             throw ParseError("expected )");
         tokenizer.readNext();
@@ -499,7 +580,10 @@ private:
         case TokenType::False:
         case TokenType::True:
         case TokenType::LParen:
+        case TokenType::Star:
+        case TokenType::Ampersand:
             expression();
+            valueStack.pop_back();
             if(tokenizer.tokenType != TokenType::Semicolon)
                 throw ParseError("expected " + getTokenString(terminatingToken));
             tokenizer.readNext();
@@ -523,7 +607,10 @@ private:
         case TokenType::False:
         case TokenType::True:
         case TokenType::LParen:
+        case TokenType::Star:
+        case TokenType::Ampersand:
             expression();
+            valueStack.pop_back();
             if(tokenizer.tokenType != TokenType::Semicolon)
                 throw ParseError("expected ;");
             tokenizer.readNext();
@@ -568,6 +655,8 @@ private:
             case TokenType::While:
             case TokenType::For:
             case TokenType::Do:
+            case TokenType::Star:
+            case TokenType::Ampersand:
                 statement();
                 break;
             case TokenType::Constant:

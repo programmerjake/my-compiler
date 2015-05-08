@@ -319,6 +319,7 @@ public:
         firstBlock->controlTransferInstruction = secondBlock->controlTransferInstruction;
         replaceBlock(secondBlock, firstBlock);
         firstBlock->destBlocks = secondBlock->destBlocks;
+        assert(firstBlock->controlTransferInstruction == nullptr || firstBlock->instructions.back() == firstBlock->controlTransferInstruction);
     }
     std::shared_ptr<SSABasicBlock> splitEdge(std::shared_ptr<SSABasicBlock> firstBlock, std::shared_ptr<SSABasicBlock> secondBlock)
     {

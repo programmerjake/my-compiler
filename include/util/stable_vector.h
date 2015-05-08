@@ -128,6 +128,8 @@ private:
         else if(used == 0)
         {
             used = space_size;
+            cells[used].node = &end_node;
+            end_node.cell = &cells[used];
         }
         else
         {
@@ -316,13 +318,13 @@ public:
         iterator &operator +=(difference_type v)
         {
             if(node != nullptr)
-                node = node->cell[v];
+                node = node->cell[v].node;
             return *this;
         }
         iterator &operator -=(difference_type v)
         {
             if(node != nullptr)
-                node = node->cell[-v];
+                node = node->cell[-v].node;
             return *this;
         }
         friend iterator operator +(difference_type l, iterator r)
@@ -394,12 +396,12 @@ public:
         }
         const_iterator &operator ++()
         {
-            node = node->cell[1];
+            node = node->cell[1].node;
             return *this;
         }
         const_iterator &operator --()
         {
-            node = node->cell[-1];
+            node = node->cell[-1].node;
             return *this;
         }
         const_iterator operator ++(int)
@@ -433,13 +435,13 @@ public:
         const_iterator &operator +=(difference_type v)
         {
             if(node != nullptr)
-                node = node->cell[v];
+                node = node->cell[v].node;
             return *this;
         }
         const_iterator &operator -=(difference_type v)
         {
             if(node != nullptr)
-                node = node->cell[-v];
+                node = node->cell[-v].node;
             return *this;
         }
         friend const_iterator operator +(difference_type l, const_iterator r)
@@ -773,13 +775,15 @@ public:
     {
         if(&other == this && (it == pos || it + 1 == pos))
             return;
-        ensure_size(used + 1);
         size_type it_index = it - other.begin();
         assert(it_index < other.used);
-        other.remove_space_after_erase(it_index, 1);
+        if(this == &other)
+            other.remove_space_after_erase(it_index, 1);
         size_type pos_index = pos - begin();
         assert(pos_index <= used);
         make_space_for_insert(pos_index, 1);
+        if(this != &other)
+            other.remove_space_after_erase(it_index, 1);
         base_node_type *node = it.node;
         cells[pos_index].node = node;
         node->cell = &cells[pos_index];
@@ -792,11 +796,13 @@ public:
     {
         if(&other != this)
             reserve(size() + static_cast<size_type>(last - first));
-        while(first != last)
+        const_iterator iter = first;
+        while(iter != last)
         {
-            const_iterator next = first + 1;
-            splice(pos, other, first);
-            first = next;
+            const_iterator next_iter = iter;
+            ++next_iter;
+            splice(pos, other, iter);
+            iter = next_iter;
         }
     }
     void splice(const_iterator pos, stable_vector &&other, const_iterator first, const_iterator last)
