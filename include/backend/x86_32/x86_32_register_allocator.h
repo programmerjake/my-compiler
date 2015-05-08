@@ -25,7 +25,7 @@
 #include <list>
 #include <algorithm>
 #include <vector>
-#include "util/random_access_list.h"
+#include "util/stable_vector.h"
 #include <iostream>
 
 class X86_32RegisterAllocator final

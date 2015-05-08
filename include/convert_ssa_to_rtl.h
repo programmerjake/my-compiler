@@ -27,6 +27,7 @@
 #include "optimization/phi_removal/phi_removal.h"
 #include "dump.h"
 #include "construct_liveness_info.h"
+#include "construct_basic_block_graph.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -169,6 +170,7 @@ public:
     {
         clearAllButFunctionMap();
         PhiRemoval().visitSSAFunction(function);
+        ConstructBasicBlockGraphVisitor().visitSSAFunction(function);
         currentlyGeneratingFunction = getOrMakeRTLFunction(function);
         std::deque<std::pair<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSABasicBlock>>> fixPhiEdgesWorklist;
         for(std::shared_ptr<SSABasicBlock> target : function->blocks)
@@ -188,11 +190,12 @@ public:
         {
             std::shared_ptr<SSABasicBlock> source = std::get<0>(edge);
             std::shared_ptr<SSABasicBlock> target = std::get<1>(edge);
-            if(source->destBlocks.size() > 1 && target->sourceBlocks.size() > 1)
+            if(source->destBlocks.size() > 1 || target->sourceBlocks.size() > 1)
             {
                 function->splitEdge(source, target);
             }
         }
+        ConstructBasicBlockGraphVisitor().visitSSAFunction(function);
         fixPhiEdgesWorklist.clear();
         for(std::shared_ptr<SSABasicBlock> block : function->blocks)
         {

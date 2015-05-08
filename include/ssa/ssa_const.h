@@ -45,6 +45,11 @@ public:
     virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
     {
     }
+    virtual void verify(std::shared_ptr<SSABasicBlock> containingBlock, std::shared_ptr<SSAFunction> containingFunction) override
+    {
+        assert(type);
+        assert(value);
+    }
 };
 
 #endif // SSA_CONST_H_INCLUDED

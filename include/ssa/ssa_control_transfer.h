@@ -73,6 +73,10 @@ public:
     virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
     {
     }
+    virtual void verify(std::shared_ptr<SSABasicBlock> containingBlock, std::shared_ptr<SSAFunction> containingFunction) override
+    {
+        assert(destBlocks.size() == 1);
+    }
 };
 
 class SSAConditionalJump final : public SSAControlTransfer
@@ -113,6 +117,12 @@ public:
     virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
     {
         condition = replaceNode(replacements, condition.lock());
+    }
+    virtual void verify(std::shared_ptr<SSABasicBlock> containingBlock, std::shared_ptr<SSAFunction> containingFunction) override
+    {
+        assert(destBlocks.size() == 2);
+        assert(condition.lock());
+        assert(condition.lock()->type->toNonConstant()->toNonVolatile() == TypeBoolean::make(context));
     }
 };
 

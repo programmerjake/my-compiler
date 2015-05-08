@@ -31,7 +31,7 @@
 #include <initializer_list>
 #include <vector>
 #include <cstdint>
-#include "util/random_access_list.h"
+#include "util/stable_vector.h"
 #include "util/variable.h"
 
 class X86_64AsmRegister final : public std::enable_shared_from_this<X86_64AsmRegister>
@@ -306,14 +306,14 @@ public:
         {
             retval = std::make_shared<std::vector<std::shared_ptr<X86_64AsmRegister>>>();
             context->setValue<std::vector<std::shared_ptr<X86_64AsmRegister>>, tag_t>(retval);
-            for(char nameMiddle : {'a', 'c', 'd', 'b'}) // we don't use ah through dh becuase they can't be used in all instructions because they conflict with the REX (64-bit override) prefix
+            for(char nameMiddle : {'a', 'c', 'd'}) // put rbx later because it is a callee saves register
             {
                 constructAndAddIntegerPhysicalRegisters(context,
                                                         retval,
                                                         std::string("r") + nameMiddle + "x",
                                                         std::string("e") + nameMiddle + "x",
                                                         nameMiddle + std::string("x"),
-                                                        nameMiddle + std::string("l"),
+                                                        nameMiddle + std::string("l"), // we don't use ah through dh becuase they can't be used in all instructions because they conflict with the REX (64-bit override) prefix
                                                         false, nameMiddle == 'b');
             }
             for(std::string baseName : {"si", "di"})
@@ -325,16 +325,6 @@ public:
                                                         baseName,
                                                         baseName + "l",
                                                         false, false);
-            }
-            for(std::string baseName : {"sp", "bp"})
-            {
-                constructAndAddIntegerPhysicalRegisters(context,
-                                                        retval,
-                                                        "r" + baseName,
-                                                        "e" + baseName,
-                                                        baseName,
-                                                        baseName + "l",
-                                                        true, true);
             }
             for(int i = 8; i < 16; i++)
             {
@@ -357,6 +347,26 @@ public:
                 std::shared_ptr<X86_64AsmRegister> r = makePhysicalRegister(context, name, PhysicalRegisterKindMask::Float64() | PhysicalRegisterKindMask::Float32(), false, false);
                 r->saveRegister = r;
                 retval->push_back(r);
+            }
+            for(char nameMiddle : {'b'}) // put rbx later because it is a callee saves register
+            {
+                constructAndAddIntegerPhysicalRegisters(context,
+                                                        retval,
+                                                        std::string("r") + nameMiddle + "x",
+                                                        std::string("e") + nameMiddle + "x",
+                                                        nameMiddle + std::string("x"),
+                                                        nameMiddle + std::string("l"), // we don't use ah through dh becuase they can't be used in all instructions because they conflict with the REX (64-bit override) prefix
+                                                        false, nameMiddle == 'b');
+            }
+            for(std::string baseName : {"sp", "bp"})
+            {
+                constructAndAddIntegerPhysicalRegisters(context,
+                                                        retval,
+                                                        "r" + baseName,
+                                                        "e" + baseName,
+                                                        baseName,
+                                                        baseName + "l",
+                                                        true, true);
             }
         }
         return *retval;
@@ -517,7 +527,7 @@ public:
     {
     }
     std::shared_ptr<X86_64AsmControlTransfer> controlTransferInstruction;
-    typedef random_access_list<std::shared_ptr<X86_64AsmNode>> InstructionList;
+    typedef stable_vector<std::shared_ptr<X86_64AsmNode>> InstructionList;
     InstructionList instructions;
     std::list<std::weak_ptr<X86_64AsmBasicBlock>> sourceBlocks;
     std::list<std::weak_ptr<X86_64AsmBasicBlock>> destBlocks;

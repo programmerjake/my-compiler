@@ -148,11 +148,34 @@ public:
                     const std::unordered_set<std::shared_ptr<SSABasicBlock>> &targetSet = targetSets[controlTransferNode];
                     if(targetSet.size() != 1)
                         continue;
-                    std::shared_ptr<SSANode> replacementNode = std::make_shared<SSAUnconditionalJump>(function->context, *targetSet.begin());
+                    std::shared_ptr<SSABasicBlock> target = *targetSet.begin();
+                    std::shared_ptr<SSANode> replacementNode = std::make_shared<SSAUnconditionalJump>(function->context, target);
                     assert(replacementNode != nullptr);
                     nodeReplacementMap.emplace(node, SSANode::ReplacementNode(replacementNode, false));
                     values[replacementNode] = nullptr;
                     blocks[replacementNode] = block;
+                    for(std::weak_ptr<SSABasicBlock> oldTargetW : controlTransferNode->destBlocks)
+                    {
+                        std::shared_ptr<SSABasicBlock> oldTarget = oldTargetW.lock();
+                        if(oldTarget == target)
+                            continue;
+                        for(std::shared_ptr<SSANode> node2 : oldTarget->instructions)
+                        {
+                            if(std::shared_ptr<SSAPhi> phi = std::dynamic_pointer_cast<SSAPhi>(node2))
+                            {
+                                for(auto i = phi->inputs.begin(); i != phi->inputs.end();)
+                                {
+                                    const SSAPhi::PhiInput &input = *i;
+                                    if(input.block.lock() == block)
+                                        i = phi->inputs.erase(i);
+                                    else
+                                        ++i;
+                                }
+                            }
+                            else // all phis are at the beginning
+                                break;
+                        }
+                    }
                 }
                 if(dynamic_cast<const SSAConstant *>(node.get()) != nullptr)
                     continue;

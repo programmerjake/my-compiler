@@ -22,6 +22,8 @@
 
 #include <cassert>
 
+#include "ssa/ssa_control_transfer.h"
+
 class SSAPhi final : public SSANode
 {
 public:
@@ -168,6 +170,26 @@ public:
         {
             if(i.block.lock() == searchFor)
                 i.block = replaceWith;
+        }
+    }
+    virtual void verify(std::shared_ptr<SSABasicBlock> containingBlock, std::shared_ptr<SSAFunction> containingFunction) override
+    {
+        assert(inputs.size() == containingBlock->sourceBlocks.size());
+        for(PhiInput &i : inputs)
+        {
+            std::shared_ptr<SSABasicBlock> inputBlock = i.block.lock();
+            bool found = false;
+            for(std::weak_ptr<SSABasicBlock> sourceBlockW : containingBlock->sourceBlocks)
+            {
+                std::shared_ptr<SSABasicBlock> sourceBlock = sourceBlockW.lock();
+                if(sourceBlock == inputBlock)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if(!found)
+                assert(!"phi's input block not found in containing block's source blocks");
         }
     }
 };

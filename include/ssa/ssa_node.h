@@ -29,11 +29,12 @@
 #include "types/type.h"
 #include "values/value.h"
 #include "util/variable.h"
-#include "util/random_access_list.h"
+#include "util/stable_vector.h"
 
 class SSANodeVisitor;
 class SSAControlTransfer;
 class SSABasicBlock;
+class SSAFunction;
 
 class SSANode : public std::enable_shared_from_this<SSANode>
 {
@@ -86,6 +87,7 @@ public:
     {
 
     }
+    virtual void verify(std::shared_ptr<SSABasicBlock> containingBlock, std::shared_ptr<SSAFunction> containingFunction) = 0;
 };
 
 class SSABasicBlock : public std::enable_shared_from_this<SSABasicBlock>
@@ -101,7 +103,7 @@ public:
     std::list<std::weak_ptr<SSABasicBlock>> dominatedBlocks;
     std::list<std::weak_ptr<SSABasicBlock>> destBlocks;
     std::shared_ptr<SSAControlTransfer> controlTransferInstruction;
-    random_access_list<std::shared_ptr<SSANode>> instructions; /// all SSAPhi nodes must be first and the only allowed SSAControlTransfer must be last
+    stable_vector<std::shared_ptr<SSANode>> instructions; /// all SSAPhi nodes must be first and the only allowed SSAControlTransfer must be last
     void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, SSANode::ReplacementNode> &replacements)
     {
         auto iter = replacements.find(std::static_pointer_cast<SSANode>(controlTransferInstruction));
@@ -190,11 +192,50 @@ public:
             node->replaceBlock(searchFor, replaceWith);
         }
     }
+    void verify(std::shared_ptr<SSAFunction> containingFunction);
 };
 
 #include "ssa/ssa_visitor.h"
-#include "ssa/ssa_phi.h"
+#include "ssa/ssa_phi.h" // must be before ssa_control_transfer.h
 #include "ssa/ssa_control_transfer.h"
+
+inline void SSABasicBlock::verify(std::shared_ptr<SSAFunction> containingFunction)
+{
+    bool gotNonPhi = false;
+    for(std::shared_ptr<SSANode> node : instructions)
+    {
+        assert(node);
+        node->verify(shared_from_this(), containingFunction);
+        assert(node == controlTransferInstruction || dynamic_cast<const SSAControlTransfer *>(node.get()) == nullptr);
+        if(dynamic_cast<const SSAPhi *>(node.get()))
+        {
+            if(gotNonPhi)
+                assert(!"phi instructions are not before others");
+        }
+        else
+            gotNonPhi = true;
+    }
+    assert(destBlocks.size() == (controlTransferInstruction ? controlTransferInstruction->destBlocks.size() : 0));
+    for(std::weak_ptr<SSABasicBlock> destBlockW : destBlocks)
+    {
+        assert(controlTransferInstruction != nullptr);
+        std::shared_ptr<SSABasicBlock> destBlock = destBlockW.lock();
+        assert(destBlock);
+        bool found = false;
+        for(std::weak_ptr<SSABasicBlock> destBlock2W : controlTransferInstruction->destBlocks)
+        {
+            std::shared_ptr<SSABasicBlock> destBlock2 = destBlock2W.lock();
+            assert(destBlock2);
+            if(destBlock2 == destBlock)
+            {
+                found = true;
+                break;
+            }
+        }
+        if(!found)
+            assert(!"dest block not found in control transfer instruction");
+    }
+}
 
 class SSAFunction : public std::enable_shared_from_this<SSAFunction>
 {
@@ -309,6 +350,11 @@ public:
         retval->dominatedBlocks.push_back(retval);
         blocks.push_back(retval);
         return retval;
+    }
+    void verify()
+    {
+        for(std::shared_ptr<SSABasicBlock> block : blocks)
+            block->verify(shared_from_this());
     }
 };
 

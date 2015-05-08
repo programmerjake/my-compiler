@@ -31,7 +31,7 @@
 #include <initializer_list>
 #include <vector>
 #include <cstdint>
-#include "util/random_access_list.h"
+#include "util/stable_vector.h"
 #include "util/variable.h"
 
 class X86_32AsmRegister final : public std::enable_shared_from_this<X86_32AsmRegister>
@@ -503,7 +503,7 @@ public:
     {
     }
     std::shared_ptr<X86_32AsmControlTransfer> controlTransferInstruction;
-    typedef random_access_list<std::shared_ptr<X86_32AsmNode>> InstructionList;
+    typedef stable_vector<std::shared_ptr<X86_32AsmNode>> InstructionList;
     InstructionList instructions;
     std::list<std::weak_ptr<X86_32AsmBasicBlock>> sourceBlocks;
     std::list<std::weak_ptr<X86_32AsmBasicBlock>> destBlocks;

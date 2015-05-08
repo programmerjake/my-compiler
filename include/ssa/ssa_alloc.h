@@ -58,6 +58,11 @@ public:
     {
         return true;
     }
+    virtual void verify(std::shared_ptr<SSABasicBlock> containingBlock, std::shared_ptr<SSAFunction> containingFunction) override
+    {
+        assert(type);
+        assert(variableType);
+    }
 };
 
 #endif // SSA_ALLOC_H_INCLUDED

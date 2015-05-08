@@ -11,7 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="--arch=x86_64" />
+				<Option parameters="--arch=x86_32" />
 				<Compiler>
 					<Add option="-g" />
 					<Add option="-Wold-style-cast" />
@@ -79,6 +79,7 @@
 		<Unit filename="include/types/type_builtin.h" />
 		<Unit filename="include/types/types.h" />
 		<Unit filename="include/util/random_access_list.h" />
+		<Unit filename="include/util/stable_vector.h" />
 		<Unit filename="include/util/variable.h" />
 		<Unit filename="include/values/value.h" />
 		<Unit filename="include/values/values.h" />

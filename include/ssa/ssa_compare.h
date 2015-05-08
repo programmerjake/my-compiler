@@ -163,6 +163,12 @@ public:
         lhs = replaceNode(replacements, lhs.lock());
         rhs = replaceNode(replacements, rhs.lock());
     }
+    virtual void verify(std::shared_ptr<SSABasicBlock> containingBlock, std::shared_ptr<SSAFunction> containingFunction) override
+    {
+        assert(type && type->toNonConstant()->toNonVolatile() == TypeBoolean::make(context));
+        assert(lhs.lock());
+        assert(rhs.lock());
+    }
 };
 
 #endif // SSA_COMPARE_H_INCLUDED

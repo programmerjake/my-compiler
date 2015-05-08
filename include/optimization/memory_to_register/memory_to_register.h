@@ -23,291 +23,186 @@
 #include "util/variable.h"
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 #include "construct_basic_block_graph.h"
 
-class MemoryToRegister final : public SSANodeVisitor
+class MemoryToRegister final
 {
-private:
-    typedef typename random_access_list<std::shared_ptr<SSANode>>::iterator InstructionIterator;
-    std::unordered_multimap<std::shared_ptr<VariableDescriptor>, InstructionIterator> addressRegisterVariableToInstructionIteratorMap;
-    std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<VariableDescriptor>> addressRegisterInstructionToVariableMap;
-    std::unordered_map<std::shared_ptr<SSANode>, std::pair<std::shared_ptr<SSABasicBlock>, InstructionIterator>> fencePoints;
-    std::unordered_map<std::shared_ptr<VariableDescriptor>, std::unordered_map<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSANode>>> variableNodesMap;
-    std::unordered_set<std::shared_ptr<VariableDescriptor>> variables;
-    InstructionIterator currentInstructionIterator;
-    std::shared_ptr<SSABasicBlock> currentBasicBlock;
-    enum class Stage
-    {
-        FindReferringInstructions,
-        FindFencePoints,
-        RewriteLoadAndStore,
-    };
-    Stage stage = Stage::FindReferringInstructions;
-    bool didAnything = false;
-    void addAddressInstruction(InstructionIterator iter, std::shared_ptr<SSANode> node, std::shared_ptr<VariableDescriptor> variable)
-    {
-        variables.insert(variable);
-        if(std::get<1>(addressRegisterInstructionToVariableMap.emplace(node, variable)))
-        {
-            addressRegisterVariableToInstructionIteratorMap.emplace(variable, iter);
-            didAnything = true;
-        }
-    }
-public:
-    virtual void visitSSAUnconditionalJump(std::shared_ptr<SSAUnconditionalJump> node) override
-    {
-        switch(stage)
-        {
-        case Stage::FindReferringInstructions:
-        {
-            break;
-        }
-        case Stage::FindFencePoints:
-        {
-            break;
-        }
-        case Stage::RewriteLoadAndStore:
-        {
-            break;
-        }
-        }
-    }
-    virtual void visitSSAConditionalJump(std::shared_ptr<SSAConditionalJump> node) override
-    {
-        switch(stage)
-        {
-        case Stage::FindReferringInstructions:
-        {
-            break;
-        }
-        case Stage::FindFencePoints:
-        {
-            break;
-        }
-        case Stage::RewriteLoadAndStore:
-        {
-            break;
-        }
-        }
-    }
-    virtual void visitSSAPhi(std::shared_ptr<SSAPhi> node) override
-    {
-        switch(stage)
-        {
-        case Stage::FindReferringInstructions:
-        {
-            std::shared_ptr<VariableDescriptor> variable;
-            bool isFirst = true;
-            for(const SSAPhi::PhiInput &input : node->inputs)
-            {
-                std::shared_ptr<SSANode> inputNode = input.node.lock();
-                std::shared_ptr<VariableDescriptor> currentVariable = nullptr;
-                auto iter = addressRegisterInstructionToVariableMap.find(inputNode);
-                if(iter != addressRegisterInstructionToVariableMap.end())
-                    currentVariable = std::get<1>(*iter);
-                if(isFirst)
-                {
-                    variable = currentVariable;
-                    isFirst = false;
-                }
-                else if(variable != currentVariable)
-                {
-                    variable = nullptr;
-                    break;
-                }
-            }
-            if(variable != nullptr)
-            {
-                addAddressInstruction(currentInstructionIterator, node, variable);
-            }
-            break;
-        }
-        case Stage::FindFencePoints:
-        {
-            break;
-        }
-        case Stage::RewriteLoadAndStore:
-        {
-            break;
-        }
-        }
-    }
-    virtual void visitSSAConstant(std::shared_ptr<SSAConstant> node) override
-    {
-        switch(stage)
-        {
-        case Stage::FindReferringInstructions:
-        {
-            if(std::shared_ptr<ValueVariablePointer> valueVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(node->value))
-            {
-                std::shared_ptr<VariableDescriptor> variable = valueVariablePointer->location.variable;
-                addAddressInstruction(currentInstructionIterator, node, variable);
-            }
-            break;
-        }
-        case Stage::FindFencePoints:
-        {
-            break;
-        }
-        case Stage::RewriteLoadAndStore:
-        {
-            break;
-        }
-        }
-    }
-    virtual void visitSSAMove(std::shared_ptr<SSAMove> node) override
-    {
-        switch(stage)
-        {
-        case Stage::FindReferringInstructions:
-        {
-            auto iter = addressRegisterInstructionToVariableMap.find(node->source.lock());
-            if(iter != addressRegisterInstructionToVariableMap.end())
-                addAddressInstruction(currentInstructionIterator, node, std::get<1>(*iter));
-            break;
-        }
-        case Stage::FindFencePoints:
-        {
-            break;
-        }
-        case Stage::RewriteLoadAndStore:
-        {
-            break;
-        }
-        }
-    }
-    virtual void visitSSALoad(std::shared_ptr<SSALoad> node) override
-    {
-        switch(stage)
-        {
-        case Stage::FindReferringInstructions:
-        {
-            break;
-        }
-        case Stage::FindFencePoints:
-        {
-            if(addressRegisterInstructionToVariableMap.count(node->address.lock()) == 0)
-                fencePoints.emplace(node, std::pair<std::shared_ptr<SSABasicBlock>, InstructionIterator>(currentBasicBlock, currentInstructionIterator));
-            break;
-        }
-        case Stage::RewriteLoadAndStore:
-        {
-
-            break;
-        }
-        }
-    }
-    virtual void visitSSAStore(std::shared_ptr<SSAStore> node) override
-    {
-        switch(stage)
-        {
-        case Stage::FindReferringInstructions:
-        {
-            break;
-        }
-        case Stage::FindFencePoints:
-        {
-            if(addressRegisterInstructionToVariableMap.count(node->address.lock()) == 0)
-                fencePoints.emplace(node, std::pair<std::shared_ptr<SSABasicBlock>, InstructionIterator>(currentBasicBlock, currentInstructionIterator));
-            break;
-        }
-        }
-    }
-    virtual void visitSSACompare(std::shared_ptr<SSACompare> node) override
-    {
-        switch(stage)
-        {
-        case Stage::FindReferringInstructions:
-        {
-            break;
-        }
-        case Stage::FindFencePoints:
-        {
-            break;
-        }
-        }
-    }
-    virtual void visitSSAAllocA(std::shared_ptr<SSAAllocA> node) override
-    {
-        switch(stage)
-        {
-        case Stage::FindReferringInstructions:
-        {
-            std::shared_ptr<VariableDescriptor> variable = node->getVariableDescriptor();
-            addAddressInstruction(currentInstructionIterator, node, variable);
-            break;
-        }
-        case Stage::FindFencePoints:
-        {
-            break;
-        }
-        }
-    }
-private:
-    void visitSSABasicBlock(std::shared_ptr<SSABasicBlock> block)
-    {
-        currentBasicBlock = block;
-        for(InstructionIterator i = block->instructions.begin(); i != block->instructions.end(); ++i)
-        {
-            currentInstructionIterator = i;
-            (*i)->visit(*this);
-        }
-    }
 public:
     void visitSSAFunction(std::shared_ptr<SSAFunction> function)
     {
         ConstructBasicBlockGraphVisitor().visitSSAFunction(function);
-        stage = Stage::FindReferringInstructions;
-        addressRegisterVariableToInstructionIteratorMap.clear();
-        addressRegisterInstructionToVariableMap.clear();
-        fencePoints.clear();
-        variableNodesMap.clear();
-        variables.clear();
-        do
-        {
-            didAnything = false;
-            for(std::shared_ptr<SSABasicBlock> block : function->blocks)
-                visitSSABasicBlock(block);
-        }
-        while(didAnything);
-        stage = Stage::FindFencePoints;
+        std::unordered_map<std::shared_ptr<VariableDescriptor>, std::unordered_set<std::shared_ptr<SSANode>>> variableToNodeSetMap;
+        std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<VariableDescriptor>> nodeToVariableMap;
+        std::unordered_set<std::shared_ptr<VariableDescriptor>> variables;
         for(std::shared_ptr<SSABasicBlock> block : function->blocks)
-            visitSSABasicBlock(block);
-
-        if(fencePoints.empty())
         {
-            for(std::shared_ptr<VariableDescriptor> variable : variables)
+            for(std::shared_ptr<SSANode> node : block->instructions)
             {
-                std::shared_ptr<TypeNode> type = variable->getType();
-                if(type == nullptr)
-                    continue;
-                type = type->dereference();
-                if(type == nullptr)
-                    continue;
-                std::list<std::shared_ptr<SSAPhi>> phiInstructions;
-                std::unordered_map<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSANode>> &nodesMap = variableNodesMap[variable];
-                for(std::shared_ptr<SSABasicBlock> block : function->blocks)
+                std::shared_ptr<VariableDescriptor> variable = nullptr;
+                if(std::shared_ptr<SSAConstant> constant = std::dynamic_pointer_cast<SSAConstant>(node))
                 {
-                    if(!block->sourceBlocks.empty())
+                    std::shared_ptr<ValueVariablePointer> valueVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(constant->value);
+                    if(valueVariablePointer != nullptr)
                     {
-                        std::shared_ptr<SSAPhi> phi = std::make_shared<SSAPhi>(type, nullptr);
-                        phiInstructions.push_front(phi);
-                        block->instructions.push_front(phi);
-                        nodesMap[block] = phi;
+                        variable = valueVariablePointer->location.variable;
+                        if(variable && variable->getKind() != VariableDescriptor::Kind::LocalVariable)
+                            variable = nullptr;
                     }
                 }
-                #error add find first load and last store
-                #error add rewrite load and stores
-                #error add phi fixup
+                else if(std::shared_ptr<SSAAllocA> ssaAllocA = std::dynamic_pointer_cast<SSAAllocA>(node))
+                {
+                    variable = ssaAllocA->getVariableDescriptor();
+                }
+                if(variable != nullptr)
+                {
+                    nodeToVariableMap[node] = variable;
+                    variableToNodeSetMap[variable].insert(node);
+                    variables.insert(variable);
+                }
             }
         }
-        addressRegisterVariableToInstructionIteratorMap.clear();
-        addressRegisterInstructionToVariableMap.clear();
-        fencePoints.clear();
-        variableNodesMap.clear();
-        variables.clear();
-        currentInstructionIterator = InstructionIterator();
-        currentBasicBlock = nullptr;
+        std::unordered_map<std::shared_ptr<VariableDescriptor>, std::unordered_set<std::shared_ptr<SSABasicBlock>>> variableToUsedBasicBlockSetMap;
+        std::unordered_map<std::shared_ptr<VariableDescriptor>, std::unordered_set<std::shared_ptr<SSABasicBlock>>> variableToFirstReferenceIsUseSetMap;
+        std::unordered_map<std::shared_ptr<VariableDescriptor>, std::unordered_map<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSANode>>> variableToLastStoreMapMap;
+        std::unordered_map<std::shared_ptr<VariableDescriptor>, std::unordered_set<std::shared_ptr<SSANode>>> variableToLoadStoreSetMap;
+        for(std::shared_ptr<SSABasicBlock> block : function->blocks)
+        {
+            for(std::shared_ptr<SSANode> node : block->instructions)
+            {
+                std::shared_ptr<SSANode> addressNode = nullptr;
+                bool readFromAddress = false, writeToAddress = false;
+                if(std::shared_ptr<SSALoad> load = std::dynamic_pointer_cast<SSALoad>(node))
+                {
+                    addressNode = load->address.lock();
+                    readFromAddress = true;
+                }
+                else if(std::shared_ptr<SSAStore> store = std::dynamic_pointer_cast<SSAStore>(node))
+                {
+                    addressNode = store->address.lock();
+                    writeToAddress = true;
+                }
+                // note: if more load/store node types are added then they also need to be added to the replacement node creation code
+
+                if(addressNode != nullptr)
+                {
+                    auto iter = nodeToVariableMap.find(addressNode);
+                    if(iter != nodeToVariableMap.end())
+                    {
+                        std::shared_ptr<VariableDescriptor> variable = std::get<1>(*iter);
+                        variableToUsedBasicBlockSetMap[variable].insert(block);
+                        variableToLoadStoreSetMap[variable].insert(node);
+                        std::unordered_set<std::shared_ptr<SSABasicBlock>> &firstReferenceIsUseSet = variableToFirstReferenceIsUseSetMap[variable];
+                        std::unordered_map<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSANode>> &lastStoreMap = variableToLastStoreMapMap[variable];
+                        if(readFromAddress && lastStoreMap.count(block) == 0)
+                        {
+                            firstReferenceIsUseSet.insert(block);
+                        }
+                        if(writeToAddress)
+                        {
+                            lastStoreMap[block] = node;
+                        }
+                    }
+                }
+                for(std::shared_ptr<SSANode> inputNode : node->getInputs())
+                {
+                    if(inputNode == addressNode)
+                        continue;
+                    auto iter = nodeToVariableMap.find(inputNode);
+                    if(iter != nodeToVariableMap.end())
+                        variables.erase(std::get<1>(*iter));
+                }
+            }
+        }
+        std::vector<std::pair<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSAPhi>>> phiList;
+        for(std::shared_ptr<VariableDescriptor> variable : variables)
+        {
+            std::shared_ptr<TypeNode> variableType = variable->getType();
+            if(variableType == nullptr)
+            {
+                continue;
+            }
+            const std::unordered_set<std::shared_ptr<SSABasicBlock>> &useSet = variableToFirstReferenceIsUseSetMap[variable];
+            const std::unordered_map<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSANode>> &lastStoreMap = variableToLastStoreMapMap[variable];
+            std::unordered_set<std::shared_ptr<SSABasicBlock>> liveInSet = useSet;
+            std::unordered_set<std::shared_ptr<SSABasicBlock>> liveOutSet;
+            bool didAnything = true;
+            while(didAnything)
+            {
+                didAnything = false;
+                for(std::shared_ptr<SSABasicBlock> block : liveInSet)
+                {
+                    for(std::weak_ptr<SSABasicBlock> predecessorW : block->sourceBlocks)
+                    {
+                        std::shared_ptr<SSABasicBlock> predecessor = predecessorW.lock();
+                        if(std::get<1>(liveOutSet.insert(predecessor)))
+                            didAnything = true;
+                    }
+                }
+                for(std::shared_ptr<SSABasicBlock> block : liveOutSet)
+                {
+                    if(lastStoreMap.count(block) != 0)
+                        continue;
+                    if(std::get<1>(liveInSet.insert(block)))
+                        didAnything = true;
+                }
+            }
+            if(liveInSet.count(function->startBlock) != 0) // live at function start : may be uninitialized so can't promote to register because it depends on memory value
+            {
+                continue;
+            }
+            phiList.clear();
+            std::unordered_map<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSANode>> blockCurrentNodeMap;
+            std::unordered_map<std::shared_ptr<SSANode>, SSANode::ReplacementNode> replacementNodes;
+            for(std::shared_ptr<SSABasicBlock> block : function->blocks)
+            {
+                std::shared_ptr<SSANode> &currentNode = blockCurrentNodeMap[block];
+                if(liveInSet.count(block) != 0)
+                {
+                    std::shared_ptr<SSAPhi> phi = std::make_shared<SSAPhi>(variableType, SpillLocation(variable));
+                    block->instructions.push_front(phi);
+                    currentNode = phi;
+                    phiList.emplace_back(block, phi);
+                }
+                for(std::shared_ptr<SSANode> node : block->instructions)
+                {
+                    if(std::shared_ptr<SSALoad> load = std::dynamic_pointer_cast<SSALoad>(node))
+                    {
+                        if(nodeToVariableMap[load->address.lock()] != variable)
+                            continue;
+                        assert(currentNode != nullptr);
+                        replacementNodes.emplace(node, SSANode::ReplacementNode(currentNode, true));
+                    }
+                    else if(std::shared_ptr<SSAStore> store = std::dynamic_pointer_cast<SSAStore>(node))
+                    {
+                        if(nodeToVariableMap[store->address.lock()] != variable)
+                            continue;
+                        replacementNodes.emplace(node, SSANode::ReplacementNode(nullptr, true));
+                        currentNode = store->value.lock();
+                        assert(currentNode != nullptr);
+                    }
+                }
+            }
+            for(std::pair<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSAPhi>> blockAndPhi : phiList)
+            {
+                std::shared_ptr<SSABasicBlock> block = std::get<0>(blockAndPhi);
+                std::shared_ptr<SSAPhi> phi = std::get<1>(blockAndPhi);
+                for(std::weak_ptr<SSABasicBlock> predecessorW : block->sourceBlocks)
+                {
+                    std::shared_ptr<SSABasicBlock> predecessor = predecessorW.lock();
+                    std::shared_ptr<SSANode> node = blockCurrentNodeMap[predecessor];
+                    if(node == nullptr)
+                        continue;
+                    phi->inputs.push_back(SSAPhi::PhiInput{node, predecessor});
+                }
+            }
+            for(std::shared_ptr<SSANode> node : variableToNodeSetMap[variable])
+            {
+                replacementNodes.emplace(node, SSANode::ReplacementNode(nullptr, true));
+            }
+            function->replaceNodes(replacementNodes);
+        }
+        phiList.clear();
     }
 };
 

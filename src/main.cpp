@@ -31,10 +31,20 @@
 #include "backend/backend.h"
 #include "backend/x86_64/x86_64_backend.h"
 #include "backend/x86_32/x86_32_backend.h"
+#include "optimization/memory_to_register/memory_to_register.h"
 #include <getopt.h>
 
 std::string getSourceCode()
 {
+#if 0
+    return
+R"(boolean a = true, b = false;
+if(a)
+    b = true;
+if(b)
+    a = false;
+)";
+#else
     return
 R"(for(boolean x = true, y = true, z = true; z; z = y, y = x, x = false)
 {
@@ -44,6 +54,7 @@ R"(for(boolean x = true, y = true, z = true; z; z = y, y = x, x = false)
         y = false;
 }
 )";
+#endif
 }
 
 struct ArchitectureDescriptor final
@@ -175,10 +186,21 @@ int main(int argc, char **argv)
         std::cerr << "\nParse Error : " << e.what() << std::endl;
         return 1;
     }
+    ConstructBasicBlockGraphVisitor().visitSSAFunction(fn);
+    fn->verify();
     std::cout << std::endl << std::endl;
-    PhiRemoval().visitSSAFunction(fn);
-    ConstantPropagationAndDeadCodeElimination().visitSSAFunction(fn);
-    ControlFlowSimplification().visitSSAFunction(fn);
+    for(std::size_t i = 0; i < 3; i++)
+    {
+        MemoryToRegister().visitSSAFunction(fn);
+        ConstructBasicBlockGraphVisitor().visitSSAFunction(fn);
+        fn->verify();
+        PhiRemoval().visitSSAFunction(fn);
+        ConstructBasicBlockGraphVisitor().visitSSAFunction(fn);
+        fn->verify();
+        ConstantPropagationAndDeadCodeElimination().visitSSAFunction(fn);
+        ConstructBasicBlockGraphVisitor().visitSSAFunction(fn);
+        fn->verify();
+    }
     std::shared_ptr<RTLFunction> rtlFn = ConvertSSAToRTL().visitSSAFunction(fn);
     backend->outputAsAssembly(std::cout, std::list<std::shared_ptr<RTLFunction>>{rtlFn});
     return 0;

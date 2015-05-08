@@ -38,6 +38,7 @@ class ControlFlowSimplification final
 public:
     void visitSSAFunction(std::shared_ptr<SSAFunction> function)
     {
+        ConstructBasicBlockGraphVisitor().visitSSAFunction(function);
         bool done = false;
         while(!done)
         {

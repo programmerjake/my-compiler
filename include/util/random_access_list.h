@@ -461,6 +461,7 @@ protected:
                 new_node->tree_node_count = 1;
                 for(node_base *node = tree_base; node != nullptr; node = node->parent)
                 {
+                    assert(node != node->parent);
                     node->calc_depth_and_node_count();
                 }
             }
@@ -485,6 +486,7 @@ protected:
                 new_node->tree_node_count = 1;
                 for(node_base *node = tree_base; node != nullptr; node = node->parent)
                 {
+                    assert(node != node->parent);
                     node->calc_depth_and_node_count();
                 }
             }
@@ -541,6 +543,7 @@ protected:
         if(node->left == nullptr || node->right == nullptr)
         {
             node_base *parent = node->parent;
+            assert(node != parent);
             node_base **pnode;
             if(parent)
             {
@@ -576,6 +579,7 @@ protected:
                 node = parent;
                 node->calc_depth_and_node_count();
                 parent = node->parent;
+                assert(node != parent);
                 if(parent)
                 {
                     if(parent->left == node)
@@ -602,6 +606,7 @@ protected:
         assert(replacement_node->left == nullptr || replacement_node->right == nullptr);
         remove_imp(iterator_imp(replacement_node));
         node_base *parent = node->parent;
+        assert(node != parent);
         node_base **pnode;
         if(parent)
         {
@@ -1045,6 +1050,22 @@ public:
     const_iterator clast() const
     {
         return const_iterator(last_imp());
+    }
+    T &front()
+    {
+        return *begin();
+    }
+    const T &front() const
+    {
+        return *cbegin();
+    }
+    T &back()
+    {
+        return *last();
+    }
+    const T &back() const
+    {
+        return *clast();
     }
     bool empty() const
     {

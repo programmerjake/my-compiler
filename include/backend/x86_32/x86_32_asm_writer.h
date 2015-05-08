@@ -194,6 +194,7 @@ private:
             }
             if(block->controlTransferInstruction == nullptr) // final block
             {
+                os << "    .cfi_remember_state\n";
                 for(const SavedRegister &r : savedRegisters)
                 {
                     if(r.isFloatingPoint)
@@ -203,11 +204,14 @@ private:
                     else
                     {
                         os << "    mov %" << r.r->name << ", [%ebp - " << (alignedLocalsSize - r.saveLocationStart) << "]\n";
+                        os << "    .cfi_restore %" << r.r->name << "\n";
                     }
                 }
                 os << "    mov %esp, %ebp\n";
                 os << "    pop %ebp\n";
+                os << "    .cfi_def_cfa %esp, 8\n";
                 os << "    ret\n";
+                os << "    .cfi_restore_state\n";
             }
             os << "\n";
             break;
@@ -221,8 +225,12 @@ private:
         os << "    .align 16, 0x90\n";
         os << "    .type main, @function\n";
         os << "main:\n";
+        os << "    .cfi_startproc\n";
         os << "    push %ebp\n";
+        os << "    .cfi_def_cfa_offset 8\n";
         os << "    mov %ebp, %esp\n";
+        os << "    .cfi_offset %ebp, -8\n";
+        os << "    .cfi_def_cfa_register %ebp\n";
         savedRegisters.clear();
         std::unordered_set<std::shared_ptr<X86_32AsmRegister>> savedRegistersSet;
         for(std::shared_ptr<X86_32AsmBasicBlock> block : function->blocks)
@@ -256,6 +264,7 @@ private:
             else
             {
                 os << "    mov [%ebp - " << (alignedLocalsSize - r.saveLocationStart) << "], %" << r.r->name << "\n";
+                os << "    .cfi_rel_offset %" << r.r->name << ", " << (alignedLocalsSize - r.saveLocationStart) << "\n";
             }
         }
         os << "\n";
@@ -289,6 +298,7 @@ private:
                 nextBlock = blocks[i + 1];
             visitX86_32AsmBasicBlock(block, block != function->startBlock);
         }
+        os << "    .cfi_endproc\n";
         os << "\n\n";
     }
 public:

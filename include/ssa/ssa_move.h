@@ -49,6 +49,10 @@ public:
     {
         source = replaceNode(replacements, source.lock());
     }
+    virtual void verify(std::shared_ptr<SSABasicBlock> containingBlock, std::shared_ptr<SSAFunction> containingFunction) override
+    {
+        assert(source.lock());
+    }
 };
 
 class SSALoad final : public SSANode
@@ -74,6 +78,10 @@ public:
     virtual void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, ReplacementNode> &replacements) override
     {
         address = replaceNode(replacements, address.lock());
+    }
+    virtual void verify(std::shared_ptr<SSABasicBlock> containingBlock, std::shared_ptr<SSAFunction> containingFunction) override
+    {
+        assert(address.lock());
     }
 };
 
@@ -106,6 +114,11 @@ public:
     virtual bool hasSideEffects() const override
     {
         return true;
+    }
+    virtual void verify(std::shared_ptr<SSABasicBlock> containingBlock, std::shared_ptr<SSAFunction> containingFunction) override
+    {
+        assert(address.lock());
+        assert(value.lock());
     }
 };
 
