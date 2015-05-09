@@ -23,6 +23,7 @@
 #include "types/type.h"
 #include "values/value.h"
 #include "ssa/ssa_nodes.h"
+#include "rtl/rtl_nodes.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <iostream>
@@ -263,6 +264,26 @@ public:
         }
         dominatingSetMap.clear();
         predecessorSetMap.clear();
+    }
+    void visitRTLFunction(std::shared_ptr<RTLFunction> function)
+    {
+        for(std::shared_ptr<RTLBasicBlock> block : function->blocks)
+        {
+            block->sourceBlocks.clear();
+            block->destBlocks.clear();
+        }
+        for(std::shared_ptr<RTLBasicBlock> block : function->blocks)
+        {
+            if(block->controlTransferInstruction == nullptr)
+                continue;
+            for(std::weak_ptr<RTLBasicBlock> targetBlockW : block->controlTransferInstruction->getTargets())
+            {
+                std::shared_ptr<RTLBasicBlock> targetBlock = targetBlockW.lock();
+                block->destBlocks.push_back(targetBlock);
+                targetBlock->sourceBlocks.push_back(block);
+            }
+        }
+
     }
 };
 

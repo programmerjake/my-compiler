@@ -20,12 +20,14 @@
 #define CONST_DEAD_CODE_H_INCLUDED
 
 #include "ssa/ssa_nodes.h"
+#include "rtl/rtl_nodes.h"
 #include "types/types.h"
 #include "values/values.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include "construct_basic_block_graph.h"
+#include "construct_liveness_info.h"
 #include "dump.h"
 #include <iostream>
 #include <cassert>
@@ -106,6 +108,21 @@ public:
                         currentTargetSet.insert(i);
                         if(std::get<1>(usedBlocks.insert(i)))
                             done = false;
+                    }
+                }
+            }
+            if(done)
+            {
+                for(std::shared_ptr<SSABasicBlock> basicBlock : currentUsedBlocks)
+                {
+                    for(std::shared_ptr<SSANode> node : basicBlock->instructions)
+                    {
+                        std::shared_ptr<ValueNode> &value = values[node];
+                        if(isValueUndefined(value))
+                        {
+                            value = varying;
+                            done = false;
+                        }
                     }
                 }
             }
@@ -217,7 +234,6 @@ public:
                     usedNodesWorkList.push_back(inputNode);
             }
         }
-        usedBlocks.insert(function->endBlock); // need end block even for functions that don't return
         std::unordered_set<std::shared_ptr<SSABasicBlock>> removedBlocks;
         for(auto i = function->blocks.begin(); i != function->blocks.end();)
         {
@@ -243,6 +259,242 @@ public:
             }
         }
         ConstructBasicBlockGraphVisitor().visitSSAFunction(function);
+    }
+    void visitRTLFunction(std::shared_ptr<RTLFunction> function)
+    {
+        const std::shared_ptr<ValueNode> undefined = std::make_shared<ValueUnknown>(function->context);
+        const std::shared_ptr<ValueNode> varying = nullptr;
+        std::unordered_map<std::shared_ptr<RTLBasicBlock>, std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> blockRegisterStartValueMapMap;
+        std::unordered_set<std::shared_ptr<RTLRegister>> registers;
+        for(std::shared_ptr<RTLBasicBlock> block : function->blocks)
+        {
+            for(std::shared_ptr<RTLNode> node : block->instructions)
+            {
+                for(std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>> v : node->getInputRegisters())
+                {
+                    registers.insert(std::get<0>(v));
+                }
+                for(std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>> v : node->getOutputRegisters())
+                {
+                    registers.insert(std::get<0>(v));
+                }
+            }
+        }
+        for(std::shared_ptr<RTLBasicBlock> block : function->blocks)
+        {
+            std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &registerStartValueMap = blockRegisterStartValueMapMap[block];
+            for(std::shared_ptr<RTLRegister> r : registers)
+            {
+                registerStartValueMap[r] = undefined;
+            }
+        }
+        std::unordered_set<std::shared_ptr<RTLBasicBlock>> usedBlocksSet;
+        usedBlocksSet.insert(function->startBlock);
+        bool done = false;
+        while(!done)
+        {
+            done = true;
+            std::vector<std::shared_ptr<RTLBasicBlock>> blockVisitList(usedBlocksSet.begin(), usedBlocksSet.end());
+            for(std::shared_ptr<RTLBasicBlock> block : blockVisitList)
+            {
+                std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> registerValueMap = blockRegisterStartValueMapMap[block];
+                std::list<std::shared_ptr<RTLBasicBlock>> targetBlocks;
+                for(std::shared_ptr<RTLNode> node : block->instructions)
+                {
+                    std::shared_ptr<RTLControlTransfer> controlTransfer = std::dynamic_pointer_cast<RTLControlTransfer>(node);
+                    if(controlTransfer != nullptr)
+                        targetBlocks = controlTransfer->evaluateControlForConstants(registerValueMap);
+                    for(std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> registerValue : node->evaluateForConstants(registerValueMap))
+                    {
+                        std::shared_ptr<RTLRegister> r = std::get<0>(registerValue);
+                        std::shared_ptr<ValueNode> &value = registerValueMap[r];
+                        std::shared_ptr<ValueNode> newValue = std::get<1>(registerValue);
+                        if(isValueUndefined(newValue) || isValueVarying(value))
+                            continue;
+                        if(isValueVarying(newValue))
+                        {
+                            value = varying;
+                        }
+                        else if(isValueUndefined(value))
+                        {
+                            value = newValue;
+                        }
+                        else if(*value != *newValue)
+                        {
+                            value = varying;
+                        }
+                    }
+                }
+                for(std::shared_ptr<RTLBasicBlock> targetBlock : targetBlocks)
+                {
+                    if(std::get<1>(usedBlocksSet.insert(targetBlock)))
+                        done = false;
+                    std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &targetBlockRegisterValueMap = blockRegisterStartValueMapMap[targetBlock];
+                    for(std::shared_ptr<RTLRegister> r : registers)
+                    {
+                        std::shared_ptr<ValueNode> &value = targetBlockRegisterValueMap[r];
+                        std::shared_ptr<ValueNode> newValue = registerValueMap[r];
+                        if(isValueUndefined(newValue) || isValueVarying(value))
+                            continue;
+                        if(isValueVarying(newValue))
+                        {
+                            value = varying;
+                            done = false;
+                        }
+                        else if(isValueUndefined(value))
+                        {
+                            value = newValue;
+                            done = false;
+                        }
+                        else if(*value != *newValue)
+                        {
+                            value = varying;
+                            done = false;
+                        }
+                    }
+                }
+            }
+            if(done)
+            {
+                for(std::shared_ptr<RTLBasicBlock> block : blockVisitList)
+                {
+                    std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &registerStartValueMap = blockRegisterStartValueMapMap[block];
+                    for(std::shared_ptr<RTLRegister> r : registers)
+                    {
+                        std::shared_ptr<ValueNode> &value = registerStartValueMap[r];
+                        if(isValueUndefined(value))
+                        {
+                            done = false;
+                            value = varying;
+                        }
+                    }
+                }
+            }
+        }
+        for(std::shared_ptr<RTLBasicBlock> block : function->blocks)
+        {
+            std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> registerValueMap = blockRegisterStartValueMapMap[block];
+            std::list<std::shared_ptr<RTLBasicBlock>> targetBlocks;
+            bool canRewriteControlTransfer = true;
+            for(auto i = block->instructions.begin(); i != block->instructions.end(); )
+            {
+                std::shared_ptr<RTLNode> &node = *i;
+                std::shared_ptr<RTLControlTransfer> controlTransfer = std::dynamic_pointer_cast<RTLControlTransfer>(node);
+                bool canRewrite = true;
+                if(node->hasSideEffects())
+                {
+                    if(controlTransfer != nullptr)
+                        canRewriteControlTransfer = false;
+                    canRewrite = false;
+                }
+                if(controlTransfer != nullptr)
+                {
+                    targetBlocks = controlTransfer->evaluateControlForConstants(registerValueMap);
+                    canRewrite = false;
+                }
+                if(dynamic_cast<const RTLLoadConstant *>(node.get()) != nullptr)
+                {
+                    canRewrite = false;
+                }
+                std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> registerValuesList = node->evaluateForConstants(registerValueMap);
+                for(std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> registerValue : registerValuesList)
+                {
+                    if(controlTransfer != nullptr)
+                        canRewriteControlTransfer = false; // control transfer instruction writes to registers
+                    std::shared_ptr<RTLRegister> r = std::get<0>(registerValue);
+                    std::shared_ptr<ValueNode> &value = registerValueMap[r];
+                    std::shared_ptr<ValueNode> newValue = std::get<1>(registerValue);
+                    if(isValueUndefined(newValue) || isValueVarying(value))
+                    {
+                    }
+                    else if(isValueVarying(newValue))
+                    {
+                        value = varying;
+                    }
+                    else if(isValueUndefined(value))
+                    {
+                        value = newValue;
+                    }
+                    else if(*value != *newValue)
+                    {
+                        value = varying;
+                    }
+                    if(isValueUndefined(value) || isValueVarying(value))
+                    {
+                        canRewrite = false;
+                    }
+                }
+                if(!canRewrite)
+                {
+                    ++i;
+                    continue;
+                }
+                i = block->instructions.erase(i);
+                for(std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> registerValue : registerValuesList)
+                {
+                    if(controlTransfer != nullptr)
+                        canRewriteControlTransfer = false; // control transfer instruction writes to registers
+                    std::shared_ptr<RTLRegister> r = std::get<0>(registerValue);
+                    std::shared_ptr<ValueNode> value = registerValueMap[r];
+                    block->instructions.insert(i, std::make_shared<RTLLoadConstant>(r, value));
+                }
+            }
+            if(dynamic_cast<const RTLUnconditionalJump *>(block->controlTransferInstruction.get()) != nullptr)
+                continue;
+            if(canRewriteControlTransfer)
+            {
+                if(targetBlocks.size() == 1)
+                {
+                    assert(block->controlTransferInstruction == block->instructions.back());
+                    block->controlTransferInstruction = std::make_shared<RTLUnconditionalJump>(targetBlocks.front());
+                    block->instructions.back() = block->controlTransferInstruction;
+                }
+            }
+        }
+        ConstructBasicBlockGraphVisitor().visitRTLFunction(function);
+        std::unordered_set<std::shared_ptr<RTLBasicBlock>> reachableBlocks;
+        reachableBlocks.insert(function->startBlock);
+        std::vector<std::shared_ptr<RTLBasicBlock>> reachableBlocksWorkList;
+        reachableBlocksWorkList.push_back(function->startBlock);
+        while(!reachableBlocksWorkList.empty())
+        {
+            std::shared_ptr<RTLBasicBlock> block = reachableBlocksWorkList.back();
+            reachableBlocksWorkList.pop_back();
+            for(std::weak_ptr<RTLBasicBlock> targetBlockW : block->destBlocks)
+            {
+                std::shared_ptr<RTLBasicBlock> targetBlock = targetBlockW.lock();
+                if(std::get<1>(reachableBlocks.insert(targetBlock)))
+                {
+                    reachableBlocksWorkList.push_back(targetBlock);
+                }
+            }
+        }
+        std::vector<std::shared_ptr<RTLBasicBlock>> unreachableBlocks;
+        unreachableBlocks.reserve(function->blocks.size() - reachableBlocks.size());
+        for(std::shared_ptr<RTLBasicBlock> block : function->blocks)
+        {
+            if(reachableBlocks.count(block) != 0)
+                continue;
+            unreachableBlocks.push_back(block);
+        }
+        for(auto i = function->blocks.begin(); i != function->blocks.end(); )
+        {
+            std::shared_ptr<RTLBasicBlock> block = *i;
+            if(reachableBlocks.count(block) != 0)
+            {
+                for(std::shared_ptr<RTLNode> node : block->instructions)
+                {
+                    for(std::shared_ptr<RTLBasicBlock> b : unreachableBlocks)
+                    {
+                        node->handleRemoveBasicBlock(b);
+                    }
+                }
+                ++i;
+            }
+            else
+                i = function->blocks.erase(i);
+        }
+        ConstructLivenessInfo().visitRTLFunction(function);
     }
 };
 

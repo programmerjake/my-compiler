@@ -41,6 +41,7 @@ public:
 };
 
 class RTLNodeVisitor;
+class RTLBasicBlock;
 
 class RTLNode : public std::enable_shared_from_this<RTLNode>
 {
@@ -56,9 +57,13 @@ public:
     virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getOutputRegisters() const = 0;
     virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getInputRegisters() const = 0;
     virtual void visit(RTLNodeVisitor &visitor) = 0;
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> evaluateForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) = 0;
     virtual bool hasSideEffects() const
     {
         return false;
+    }
+    virtual void handleRemoveBasicBlock(std::shared_ptr<RTLBasicBlock> block)
+    {
     }
 };
 
@@ -133,6 +138,11 @@ public:
     {
         return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>>{};
     }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> evaluateForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>>{};
+    }
+    virtual std::list<std::shared_ptr<RTLBasicBlock>> evaluateControlForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) = 0;
 };
 
 class RTLUnconditionalJump final : public RTLControlTransfer
@@ -154,6 +164,10 @@ public:
     virtual void visit(RTLNodeVisitor &visitor) override
     {
         visitor.visitRTLUnconditionalJump(std::static_pointer_cast<RTLUnconditionalJump>(shared_from_this()));
+    }
+    virtual std::list<std::shared_ptr<RTLBasicBlock>> evaluateControlForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) override
+    {
+        return std::list<std::shared_ptr<RTLBasicBlock>>{target.lock()};
     }
 };
 
@@ -179,6 +193,23 @@ public:
     {
         visitor.visitRTLConditionalJump(std::static_pointer_cast<RTLConditionalJump>(shared_from_this()));
     }
+    virtual std::list<std::shared_ptr<RTLBasicBlock>> evaluateControlForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) override
+    {
+        auto iter = values.find(condition);
+        std::shared_ptr<ValueNode> conditionValueNode = nullptr;
+        if(iter != values.end())
+            conditionValueNode = std::get<1>(*iter);
+        if(dynamic_cast<const ValueUnknown *>(conditionValueNode.get()) != nullptr)
+            return std::list<std::shared_ptr<RTLBasicBlock>>{};
+        std::shared_ptr<ValueBoolean> conditionValueBoolean = std::dynamic_pointer_cast<ValueBoolean>(conditionValueNode);
+        if(conditionValueBoolean != nullptr)
+        {
+            if(conditionValueBoolean->value)
+                return std::list<std::shared_ptr<RTLBasicBlock>>{trueTarget.lock()};
+            return std::list<std::shared_ptr<RTLBasicBlock>>{falseTarget.lock()};
+        }
+        return std::list<std::shared_ptr<RTLBasicBlock>>{trueTarget.lock(), falseTarget.lock()};
+    }
 };
 
 class RTLLoadConstant final : public RTLNode
@@ -201,6 +232,13 @@ public:
     virtual void visit(RTLNodeVisitor &visitor) override
     {
         visitor.visitRTLLoadConstant(std::static_pointer_cast<RTLLoadConstant>(shared_from_this()));
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> evaluateForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>>
+        {
+            std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>(destRegister, value)
+        };
     }
 };
 
@@ -226,6 +264,17 @@ public:
     {
         visitor.visitRTLMove(std::static_pointer_cast<RTLMove>(shared_from_this()));
     }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> evaluateForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) override
+    {
+        std::shared_ptr<ValueNode> value = nullptr;
+        auto iter = values.find(sourceRegister);
+        if(iter != values.end())
+            value = std::get<1>(*iter);
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>>
+        {
+            std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>(destRegister, value)
+        };
+    }
 };
 
 class RTLLoad final : public RTLNode
@@ -249,6 +298,14 @@ public:
     virtual void visit(RTLNodeVisitor &visitor) override
     {
         visitor.visitRTLLoad(std::static_pointer_cast<RTLLoad>(shared_from_this()));
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> evaluateForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) override
+    {
+        std::shared_ptr<ValueNode> value = nullptr;
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>>
+        {
+            std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>(destRegister, value)
+        };
     }
 };
 
@@ -278,6 +335,12 @@ public:
     {
         return true;
     }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> evaluateForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>>
+        {
+        };
+    }
 };
 
 class RTLCompare final : public RTLNode
@@ -304,6 +367,124 @@ public:
     virtual void visit(RTLNodeVisitor &visitor) override
     {
         visitor.visitRTLCompare(std::static_pointer_cast<RTLCompare>(shared_from_this()));
+    }
+private:
+    std::shared_ptr<ValueNode> evaluateForConstantsHelper(std::shared_ptr<ValueNode> lhsValue, std::shared_ptr<ValueNode> rhsValue)
+    {
+        std::shared_ptr<ValueBoolean> lhsValueBoolean = std::dynamic_pointer_cast<ValueBoolean>(lhsValue);
+        std::shared_ptr<ValueBoolean> rhsValueBoolean = std::dynamic_pointer_cast<ValueBoolean>(rhsValue);
+        if(lhsValueBoolean && rhsValueBoolean)
+        {
+            switch(compareOperator)
+            {
+            case CompareOperator::E:
+                return std::make_shared<ValueBoolean>(context, lhsValueBoolean->value == rhsValueBoolean->value);
+            case CompareOperator::G:
+                return std::make_shared<ValueBoolean>(context, lhsValueBoolean->value && !rhsValueBoolean->value);
+            case CompareOperator::GE:
+                return std::make_shared<ValueBoolean>(context, lhsValueBoolean->value || !rhsValueBoolean->value);
+            case CompareOperator::L:
+                return std::make_shared<ValueBoolean>(context, !lhsValueBoolean->value && rhsValueBoolean->value);
+            case CompareOperator::LE:
+                return std::make_shared<ValueBoolean>(context, !lhsValueBoolean->value || rhsValueBoolean->value);
+            default: // NE
+                return std::make_shared<ValueBoolean>(context, lhsValueBoolean->value != rhsValueBoolean->value);
+            }
+        }
+        std::shared_ptr<ValueNullPointer> lhsValueNullPointer = std::dynamic_pointer_cast<ValueNullPointer>(lhsValue);
+        std::shared_ptr<ValueNullPointer> rhsValueNullPointer = std::dynamic_pointer_cast<ValueNullPointer>(rhsValue);
+        if(lhsValueNullPointer && rhsValueNullPointer)
+        {
+            switch(compareOperator)
+            {
+            case CompareOperator::E:
+                return std::make_shared<ValueBoolean>(context, true);
+            case CompareOperator::G:
+                return std::make_shared<ValueBoolean>(context, false);
+            case CompareOperator::GE:
+                return std::make_shared<ValueBoolean>(context, true);
+            case CompareOperator::L:
+                return std::make_shared<ValueBoolean>(context, false);
+            case CompareOperator::LE:
+                return std::make_shared<ValueBoolean>(context, true);
+            default: // NE
+                return std::make_shared<ValueBoolean>(context, false);
+            }
+        }
+        std::shared_ptr<ValueVariablePointer> lhsValueVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(lhsValue);
+        std::shared_ptr<ValueVariablePointer> rhsValueVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(rhsValue);
+        if(lhsValueVariablePointer && rhsValueNullPointer)
+        {
+            switch(compareOperator)
+            {
+            case CompareOperator::E:
+                return std::make_shared<ValueBoolean>(context, false);
+            case CompareOperator::G:
+                return std::make_shared<ValueBoolean>(context, true);
+            case CompareOperator::GE:
+                return std::make_shared<ValueBoolean>(context, true);
+            case CompareOperator::L:
+                return std::make_shared<ValueBoolean>(context, false);
+            case CompareOperator::LE:
+                return std::make_shared<ValueBoolean>(context, false);
+            default: // NE
+                return std::make_shared<ValueBoolean>(context, false);
+            }
+        }
+        if(lhsValueNullPointer && rhsValueVariablePointer)
+        {
+            switch(compareOperator)
+            {
+            case CompareOperator::E:
+                return std::make_shared<ValueBoolean>(context, false);
+            case CompareOperator::G:
+                return std::make_shared<ValueBoolean>(context, false);
+            case CompareOperator::GE:
+                return std::make_shared<ValueBoolean>(context, false);
+            case CompareOperator::L:
+                return std::make_shared<ValueBoolean>(context, true);
+            case CompareOperator::LE:
+                return std::make_shared<ValueBoolean>(context, true);
+            default: // NE
+                return std::make_shared<ValueBoolean>(context, false);
+            }
+        }
+        if(lhsValueVariablePointer && rhsValueVariablePointer)
+        {
+            if(lhsValueVariablePointer->location.variable != rhsValueVariablePointer->location.variable)
+                return nullptr;
+            switch(compareOperator)
+            {
+            case CompareOperator::E:
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset == rhsValueVariablePointer->location.offset);
+            case CompareOperator::G:
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset > rhsValueVariablePointer->location.offset);
+            case CompareOperator::GE:
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset >= rhsValueVariablePointer->location.offset);
+            case CompareOperator::L:
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset < rhsValueVariablePointer->location.offset);
+            case CompareOperator::LE:
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset <= rhsValueVariablePointer->location.offset);
+            default: // NE
+                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset != rhsValueVariablePointer->location.offset);
+            }
+        }
+        return nullptr;
+    }
+public:
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> evaluateForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) override
+    {
+        std::shared_ptr<ValueNode> lhsValue = nullptr, rhsValue = nullptr;
+        auto iter = values.find(lhsRegister);
+        if(iter != values.end())
+            lhsValue = std::get<1>(*iter);
+        iter = values.find(rhsRegister);
+        if(iter != values.end())
+            rhsValue = std::get<1>(*iter);
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>>
+        {
+            std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>(destRegister, evaluateForConstantsHelper(lhsValue, rhsValue))
+        };
     }
 };
 

@@ -192,6 +192,7 @@ int main(int argc, char **argv)
         fn->verify();
     }
     std::shared_ptr<RTLFunction> rtlFn = ConvertSSAToRTL().visitSSAFunction(fn);
+    ConstantPropagationAndDeadCodeElimination().visitRTLFunction(rtlFn);
     backend->outputAsAssembly(std::cout, std::list<std::shared_ptr<RTLFunction>>{rtlFn});
     return 0;
 }

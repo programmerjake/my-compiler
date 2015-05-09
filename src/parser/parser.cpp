@@ -709,12 +709,8 @@ public:
         function = std::make_shared<SSAFunction>(context);
         function->startBlock = std::make_shared<SSABasicBlock>(context);
         function->blocks.push_back(function->startBlock);
-        function->endBlock = std::make_shared<SSABasicBlock>(context);
-        function->blocks.push_back(function->endBlock);
         currentBasicBlock = function->startBlock;
         blockInterior();
-        currentBasicBlock->controlTransferInstruction = std::make_shared<SSAUnconditionalJump>(context, function->endBlock);
-        currentBasicBlock->instructions.push_back(currentBasicBlock->controlTransferInstruction);
         ConstructBasicBlockGraphVisitor().visitSSAFunction(function);
         return function;
     }

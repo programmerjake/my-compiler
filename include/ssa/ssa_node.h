@@ -247,7 +247,6 @@ public:
     }
     std::list<std::shared_ptr<SSABasicBlock>> blocks;
     std::shared_ptr<SSABasicBlock> startBlock;
-    std::shared_ptr<SSABasicBlock> endBlock;
     std::list<std::shared_ptr<SSANode>> parameters;
     std::shared_ptr<SSANode> returnValue;
     void replaceNodes(const std::unordered_map<std::shared_ptr<SSANode>, SSANode::ReplacementNode> &replacements)
@@ -270,8 +269,6 @@ public:
     {
         if(startBlock == searchFor)
             startBlock = replaceWith;
-        if(endBlock == searchFor)
-            endBlock = replaceWith;
         auto searchForIterator = blocks.end();
         auto replaceWithIterator = blocks.end();
         for(auto i = blocks.begin(); i != blocks.end(); ++i)
