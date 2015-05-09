@@ -16,9 +16,33 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#ifndef X86_32_ASM_NODES_H_INCLUDED
-#define X86_32_ASM_NODES_H_INCLUDED
+#ifndef X86_BACKEND_H_INCLUDED
+#define X86_BACKEND_H_INCLUDED
 
-#include "backend/x86_32/x86_32_asm_node.h"
+#include "backend/backend.h"
 
-#endif // X86_32_ASM_NODES_H_INCLUDED
+class BackendX86 final : public Backend
+{
+public:
+    enum AssemblyDialect
+    {
+        GAS_Intel,
+        GAS_AT_T,
+        FASM,
+    };
+    const AssemblyDialect assemblyDialect;
+    enum Architecture
+    {
+        X86_32,
+        X86_64,
+    };
+    const Architecture architecture;
+    explicit BackendX86(AssemblyDialect assemblyDialect, Architecture architecture)
+        : assemblyDialect(assemblyDialect), architecture(architecture)
+    {
+    }
+    virtual void outputAsAssembly(std::ostream &os, std::list<std::shared_ptr<RTLFunction>> functions) const override;
+    virtual TypeProperties getTypeProperties(std::shared_ptr<TypeNode> type) const override;
+};
+
+#endif // X86_BACKEND_H_INCLUDED

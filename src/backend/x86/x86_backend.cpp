@@ -16,25 +16,25 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#include "backend/x86_64/x86_64_backend.h"
-#include "backend/x86_64/x86_64_asm_nodes.h"
-#include "backend/x86_64/x86_64_rtl_to_asm.h"
-#include "backend/x86_64/x86_64_asm_writer.h"
-#include "backend/x86_64/x86_64_register_allocator.h"
+#include "backend/x86/x86_backend.h"
+#include "backend/x86/x86_asm_nodes.h"
+#include "backend/x86/x86_rtl_to_asm.h"
+#include "backend/x86/x86_asm_writer.h"
+#include "backend/x86/x86_register_allocator.h"
 
-void BackendX86_64::outputAsAssembly(std::ostream &os, std::list<std::shared_ptr<RTLFunction>> functionsIn) const
+void BackendX86::outputAsAssembly(std::ostream &os, std::list<std::shared_ptr<RTLFunction>> functionsIn) const
 {
-    std::list<std::shared_ptr<X86_64AsmFunction>> functions = X86_64ConvertRTLToAsm::run(functionsIn);
+    std::list<std::shared_ptr<X86AsmFunction>> functions = X86ConvertRTLToAsm::run(functionsIn, this);
     functionsIn.clear();
-    X86_64RegisterAllocator ra;
-    for(std::shared_ptr<X86_64AsmFunction> function : functions)
+    X86RegisterAllocator ra(this);
+    for(std::shared_ptr<X86AsmFunction> function : functions)
     {
-        ra.visitX86_64AsmFunction(function);
+        ra.visitX86AsmFunction(function);
     }
     switch(assemblyDialect)
     {
     case AssemblyDialect::GAS_Intel:
-        X86_64AsmWriter_GAS_Intel::run(os, functions);
+        X86AsmWriter_GAS_Intel::run(os, functions, this);
         return;
     case AssemblyDialect::FASM:
         throw NotImplementedException("writing fasm is not implemented");
@@ -43,11 +43,16 @@ void BackendX86_64::outputAsAssembly(std::ostream &os, std::list<std::shared_ptr
     }
 }
 
-TypeProperties BackendX86_64::getTypeProperties(std::shared_ptr<TypeNode> type) const
+TypeProperties BackendX86::getTypeProperties(std::shared_ptr<TypeNode> type) const
 {
     struct MyVisitor final : public TypeVisitor
     {
         TypeProperties retval;
+        Architecture architecture;
+        MyVisitor(Architecture architecture)
+            : architecture(architecture)
+        {
+        }
         virtual void visitTypeConstant(std::shared_ptr<TypeConstant> node) override
         {
             node->toNonConstant()->visit(*this);
@@ -68,11 +73,21 @@ TypeProperties BackendX86_64::getTypeProperties(std::shared_ptr<TypeNode> type) 
         }
         virtual void visitTypePointer(std::shared_ptr<TypePointer> node) override
         {
-            retval.alignment = 8;
-            retval.size = 8;
+            switch(architecture)
+            {
+            case Architecture::X86_32:
+                retval.alignment = 4;
+                retval.size = 4;
+                return;
+            case Architecture::X86_64:
+                retval.alignment = 8;
+                retval.size = 8;
+                return;
+            }
+            assert(false);
         }
     };
-    MyVisitor v;
+    MyVisitor v(architecture);
     type->visit(v);
     return v.retval;
 }

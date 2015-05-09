@@ -16,21 +16,22 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#ifndef X86_64_RTL_TO_ASM_H_INCLUDED
-#define X86_64_RTL_TO_ASM_H_INCLUDED
+#ifndef X86_RTL_TO_ASM_H_INCLUDED
+#define X86_RTL_TO_ASM_H_INCLUDED
 
 #include "rtl/rtl_nodes.h"
-#include "backend/x86_64/x86_64_asm_nodes.h"
+#include "backend/x86/x86_asm_nodes.h"
 #include <unordered_map>
 #include <unordered_set>
 #include "construct_liveness_info.h"
-#include "backend/x86_64/x86_64_construct_liveness_info.h"
+#include "backend/x86/x86_construct_liveness_info.h"
 
-class X86_64ConvertRTLToAsm final : public RTLNodeVisitor
+class X86ConvertRTLToAsm final : public RTLNodeVisitor
 {
 private:
-    std::shared_ptr<X86_64AsmBasicBlock> currentBlock;
-    std::shared_ptr<X86_64AsmFunction> currentFunction;
+    const BackendX86 *const backend;
+    std::shared_ptr<X86AsmBasicBlock> currentBlock;
+    std::shared_ptr<X86AsmFunction> currentFunction;
     struct RegisterHasher final
     {
         std::size_t operator ()(std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>> v) const
@@ -38,39 +39,40 @@ private:
             return 3 * std::hash<std::shared_ptr<RTLRegister>>()(std::get<0>(v)) + std::hash<std::shared_ptr<TypeNode>>()(std::get<1>(v));
         }
     };
-    std::unordered_map<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>, std::shared_ptr<X86_64AsmRegister>, RegisterHasher> registerMap;
-    std::unordered_map<std::shared_ptr<RTLBasicBlock>, std::shared_ptr<X86_64AsmBasicBlock>> blockMap;
-    std::unordered_map<std::shared_ptr<RTLFunction>, std::shared_ptr<X86_64AsmFunction>> functionMap;
+    std::unordered_map<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>, std::shared_ptr<X86AsmRegister>, RegisterHasher> registerMap;
+    std::unordered_map<std::shared_ptr<RTLBasicBlock>, std::shared_ptr<X86AsmBasicBlock>> blockMap;
+    std::unordered_map<std::shared_ptr<RTLFunction>, std::shared_ptr<X86AsmFunction>> functionMap;
     std::unordered_map<std::shared_ptr<RTLRegister>, VariableLocation> registerVariableLocationMap;
-    std::shared_ptr<X86_64AsmRegister> getOrMakeRegister(std::shared_ptr<RTLRegister> reg, std::shared_ptr<TypeNode> type)
+    std::shared_ptr<X86AsmRegister> getOrMakeRegister(std::shared_ptr<RTLRegister> reg, std::shared_ptr<TypeNode> type)
     {
         auto v = std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>(reg, type);
-        std::shared_ptr<X86_64AsmRegister> &retval = registerMap[v];
+        std::shared_ptr<X86AsmRegister> &retval = registerMap[v];
         if(retval == nullptr)
         {
-            retval = X86_64AsmRegister::getVirtualRegister(reg->context, reg->name, X86_64TypeToPhysicalRegisterKindMask::run(type), reg->spillLocation);
+            retval = X86AsmRegister::getVirtualRegister(reg->context, backend, reg->name, X86TypeToPhysicalRegisterKindMask::run(type, backend), reg->spillLocation);
         }
         return retval;
     }
-    std::shared_ptr<X86_64AsmBasicBlock> getOrMakeBlock(std::shared_ptr<RTLBasicBlock> v)
+    std::shared_ptr<X86AsmBasicBlock> getOrMakeBlock(std::shared_ptr<RTLBasicBlock> v)
     {
-        std::shared_ptr<X86_64AsmBasicBlock> &retval = blockMap[v];
+        std::shared_ptr<X86AsmBasicBlock> &retval = blockMap[v];
         if(retval == nullptr)
         {
-            retval = std::make_shared<X86_64AsmBasicBlock>(v->context);
+            retval = std::make_shared<X86AsmBasicBlock>(v->context, backend);
         }
         return retval;
     }
-    std::shared_ptr<X86_64AsmFunction> getOrMakeFunction(std::shared_ptr<RTLFunction> v)
+    std::shared_ptr<X86AsmFunction> getOrMakeFunction(std::shared_ptr<RTLFunction> v)
     {
-        std::shared_ptr<X86_64AsmFunction> &retval = functionMap[v];
+        std::shared_ptr<X86AsmFunction> &retval = functionMap[v];
         if(retval == nullptr)
         {
-            retval = std::make_shared<X86_64AsmFunction>(v->context);
+            retval = std::make_shared<X86AsmFunction>(v->context, backend);
         }
         return retval;
     }
-    X86_64ConvertRTLToAsm()
+    X86ConvertRTLToAsm(const BackendX86 *backend)
+        : backend(backend)
     {
     }
     void visitRTLNode(std::shared_ptr<RTLNode> node)
@@ -96,11 +98,11 @@ private:
             visitRTLNode(node);
         }
     }
-    static void constructLivenessInfo(std::shared_ptr<X86_64AsmFunction> function)
+    static void constructLivenessInfo(std::shared_ptr<X86AsmFunction> function)
     {
-        X86_64ConstructLivenessInfo().visitX86_64AsmFunction(function);
+        X86ConstructLivenessInfo().visitX86AsmFunction(function);
     }
-    std::shared_ptr<X86_64AsmFunction> visitRTLFunction(std::shared_ptr<RTLFunction> function)
+    std::shared_ptr<X86AsmFunction> visitRTLFunction(std::shared_ptr<RTLFunction> function)
     {
         currentFunction = getOrMakeFunction(function);
         currentFunction->localVariablesSize = function->localVariablesSize;
@@ -141,7 +143,7 @@ private:
         blockMap.clear();
         currentBlock = nullptr;
         constructLivenessInfo(currentFunction);
-        std::shared_ptr<X86_64AsmFunction> retval = currentFunction;
+        std::shared_ptr<X86AsmFunction> retval = currentFunction;
         currentFunction = nullptr;
         registerVariableLocationMap.clear();
         return retval;
@@ -149,46 +151,46 @@ private:
 public:
     virtual void visitRTLLoadConstant(std::shared_ptr<RTLLoadConstant> node) override
     {
-        std::shared_ptr<X86_64AsmNode> newNode = std::make_shared<X86_64AsmNodeLoadConstant>(getOrMakeRegister(node->destRegister, node->value->type), node->value);
+        std::shared_ptr<X86AsmNode> newNode = std::make_shared<X86AsmNodeLoadConstant>(getOrMakeRegister(node->destRegister, node->value->type), node->value);
         currentBlock->instructions.push_back(newNode);
     }
     virtual void visitRTLMove(std::shared_ptr<RTLMove> node) override
     {
-        std::shared_ptr<X86_64AsmNode> newNode = std::make_shared<X86_64AsmNodeMove>(getOrMakeRegister(node->destRegister, node->type), getOrMakeRegister(node->sourceRegister, node->type));
+        std::shared_ptr<X86AsmNode> newNode = std::make_shared<X86AsmNodeMove>(getOrMakeRegister(node->destRegister, node->type), getOrMakeRegister(node->sourceRegister, node->type));
         currentBlock->instructions.push_back(newNode);
     }
     virtual void visitRTLLoad(std::shared_ptr<RTLLoad> node) override
     {
         VariableLocation vl = registerVariableLocationMap[node->addressRegister];
-        std::shared_ptr<X86_64AsmNode> newNode;
+        std::shared_ptr<X86AsmNode> newNode;
         if(vl.good())
-            newNode = std::make_shared<X86_64AsmNodeLoadLocal>(getOrMakeRegister(node->destRegister, node->addressType->dereference()), vl);
+            newNode = std::make_shared<X86AsmNodeLoadLocal>(getOrMakeRegister(node->destRegister, node->addressType->dereference()), vl);
         else
-            newNode = std::make_shared<X86_64AsmNodeLoad>(getOrMakeRegister(node->destRegister, node->addressType->dereference()), getOrMakeRegister(node->addressRegister, node->addressType));
+            newNode = std::make_shared<X86AsmNodeLoad>(getOrMakeRegister(node->destRegister, node->addressType->dereference()), getOrMakeRegister(node->addressRegister, node->addressType));
         currentBlock->instructions.push_back(newNode);
     }
     virtual void visitRTLStore(std::shared_ptr<RTLStore> node) override
     {
         VariableLocation vl = registerVariableLocationMap[node->addressRegister];
-        std::shared_ptr<X86_64AsmNode> newNode;
+        std::shared_ptr<X86AsmNode> newNode;
         if(vl.good())
-            newNode = std::make_shared<X86_64AsmNodeStoreLocal>(vl, getOrMakeRegister(node->valueRegister, node->addressType->dereference()));
+            newNode = std::make_shared<X86AsmNodeStoreLocal>(vl, getOrMakeRegister(node->valueRegister, node->addressType->dereference()));
         else
-            newNode = std::make_shared<X86_64AsmNodeStore>(getOrMakeRegister(node->addressRegister, node->addressType), getOrMakeRegister(node->valueRegister, node->addressType->dereference()));
+            newNode = std::make_shared<X86AsmNodeStore>(getOrMakeRegister(node->addressRegister, node->addressType), getOrMakeRegister(node->valueRegister, node->addressType->dereference()));
         currentBlock->instructions.push_back(newNode);
     }
     virtual void visitRTLUnconditionalJump(std::shared_ptr<RTLUnconditionalJump> node) override
     {
-        std::shared_ptr<X86_64AsmControlTransfer> newNode = std::make_shared<X86_64AsmNodeJump>(getOrMakeBlock(node->target.lock()));
+        std::shared_ptr<X86AsmControlTransfer> newNode = std::make_shared<X86AsmNodeJump>(getOrMakeBlock(node->target.lock()));
         currentBlock->instructions.push_back(newNode);
         currentBlock->controlTransferInstruction = newNode;
     }
     virtual void visitRTLConditionalJump(std::shared_ptr<RTLConditionalJump> node) override
     {
-        std::shared_ptr<X86_64AsmControlTransfer> newNode =
-            std::make_shared<X86_64AsmNodeCompareAgainstConstantAndJump>(getOrMakeRegister(node->condition, TypeBoolean::make(node->context)),
+        std::shared_ptr<X86AsmControlTransfer> newNode =
+            std::make_shared<X86AsmNodeCompareAgainstConstantAndJump>(getOrMakeRegister(node->condition, TypeBoolean::make(node->context)),
                                                                          std::make_shared<ValueBoolean>(node->context, false),
-                                                                         X86_64ConditionType::NE,
+                                                                         X86ConditionType::NE,
                                                                          getOrMakeBlock(node->trueTarget.lock()),
                                                                          getOrMakeBlock(node->falseTarget.lock()));
         currentBlock->instructions.push_back(newNode);
@@ -196,7 +198,7 @@ public:
     }
     virtual void visitRTLCompare(std::shared_ptr<RTLCompare> node) override
     {
-        X86_64ConditionType cond;
+        X86ConditionType cond;
         bool isUnsigned = true;
         if(dynamic_cast<const TypeBoolean *>(node->operandsType->toNonConstant()->toNonVolatile().get()) != nullptr)
         {
@@ -213,46 +215,46 @@ public:
         switch(node->compareOperator)
         {
         case RTLCompare::CompareOperator::E:
-            cond = X86_64ConditionType::E;
+            cond = X86ConditionType::E;
             break;
         case RTLCompare::CompareOperator::G:
             if(isUnsigned)
-                cond = X86_64ConditionType::A;
+                cond = X86ConditionType::A;
             else
-                cond = X86_64ConditionType::G;
+                cond = X86ConditionType::G;
             break;
         case RTLCompare::CompareOperator::GE:
             if(isUnsigned)
-                cond = X86_64ConditionType::AE;
+                cond = X86ConditionType::AE;
             else
-                cond = X86_64ConditionType::GE;
+                cond = X86ConditionType::GE;
             break;
         case RTLCompare::CompareOperator::L:
             if(isUnsigned)
-                cond = X86_64ConditionType::B;
+                cond = X86ConditionType::B;
             else
-                cond = X86_64ConditionType::L;
+                cond = X86ConditionType::L;
             break;
         case RTLCompare::CompareOperator::LE:
             if(isUnsigned)
-                cond = X86_64ConditionType::BE;
+                cond = X86ConditionType::BE;
             else
-                cond = X86_64ConditionType::LE;
+                cond = X86ConditionType::LE;
             break;
         default: // NE
-            cond = X86_64ConditionType::NE;
+            cond = X86ConditionType::NE;
             break;
         }
-        std::shared_ptr<X86_64AsmNode> newNode = std::make_shared<X86_64AsmNodeCompare>(getOrMakeRegister(node->destRegister, TypeBoolean::make(node->context)),
+        std::shared_ptr<X86AsmNode> newNode = std::make_shared<X86AsmNodeCompare>(getOrMakeRegister(node->destRegister, TypeBoolean::make(node->context)),
                                                                                         getOrMakeRegister(node->lhsRegister, node->operandsType),
                                                                                         getOrMakeRegister(node->rhsRegister, node->operandsType),
                                                                                         cond);
         currentBlock->instructions.push_back(newNode);
     }
-    static std::list<std::shared_ptr<X86_64AsmFunction>> run(const std::list<std::shared_ptr<RTLFunction>> &inputFunctions)
+    static std::list<std::shared_ptr<X86AsmFunction>> run(const std::list<std::shared_ptr<RTLFunction>> &inputFunctions, const BackendX86 *backend)
     {
-        X86_64ConvertRTLToAsm converter;
-        std::list<std::shared_ptr<X86_64AsmFunction>> retval;
+        X86ConvertRTLToAsm converter(backend);
+        std::list<std::shared_ptr<X86AsmFunction>> retval;
         for(std::shared_ptr<RTLFunction> fn : inputFunctions)
         {
             retval.push_back(converter.visitRTLFunction(fn));
@@ -261,4 +263,4 @@ public:
     }
 };
 
-#endif // X86_64_RTL_TO_ASM_H_INCLUDED
+#endif // X86_RTL_TO_ASM_H_INCLUDED

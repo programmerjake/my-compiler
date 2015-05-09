@@ -16,10 +16,10 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#ifndef X86_32_REGISTER_ALLOCATOR_H_INCLUDED
-#define X86_32_REGISTER_ALLOCATOR_H_INCLUDED
+#ifndef X86_REGISTER_ALLOCATOR_H_INCLUDED
+#define X86_REGISTER_ALLOCATOR_H_INCLUDED
 
-#include "backend/x86_32/x86_32_asm_nodes.h"
+#include "backend/x86/x86_asm_nodes.h"
 #include <unordered_set>
 #include <unordered_map>
 #include <list>
@@ -28,36 +28,37 @@
 #include "util/stable_vector.h"
 #include <iostream>
 
-class X86_32RegisterAllocator final
+class X86RegisterAllocator final
 {
 private:
+    const BackendX86 *const backend;
     struct LiveRangeData final
     {
         std::unordered_set<std::shared_ptr<LiveRangeData>> intersectingLiveRanges;
         std::shared_ptr<ValueNode> constantValue = nullptr;
         bool isConstant = true;
-        const std::shared_ptr<X86_32AsmRegister> originalRegister;
-        std::shared_ptr<X86_32AsmRegister> allocatedRegister;
+        const std::shared_ptr<X86AsmRegister> originalRegister;
+        std::shared_ptr<X86AsmRegister> allocatedRegister;
         std::unordered_set<std::shared_ptr<LiveRangeData>> combinableLiveRanges;
-        typedef typename X86_32AsmBasicBlock::InstructionList::iterator InstructionIterator;
-        std::vector<std::pair<std::shared_ptr<X86_32AsmBasicBlock>, InstructionIterator>> spillLoadPoints;
-        std::vector<std::pair<std::shared_ptr<X86_32AsmBasicBlock>, InstructionIterator>> spillStorePoints;
+        typedef typename X86AsmBasicBlock::InstructionList::iterator InstructionIterator;
+        std::vector<std::pair<std::shared_ptr<X86AsmBasicBlock>, InstructionIterator>> spillLoadPoints;
+        std::vector<std::pair<std::shared_ptr<X86AsmBasicBlock>, InstructionIterator>> spillStorePoints;
         struct LiveRange final
         {
-            std::shared_ptr<X86_32AsmBasicBlock> block;
+            std::shared_ptr<X86AsmBasicBlock> block;
             InstructionIterator start, end; // defining instruction is start[-1], last using instruction is end[0]
-            LiveRange(std::shared_ptr<X86_32AsmBasicBlock> block, InstructionIterator start, InstructionIterator end)
+            LiveRange(std::shared_ptr<X86AsmBasicBlock> block, InstructionIterator start, InstructionIterator end)
                 : block(block), start(start), end(end)
             {
             }
         };
         std::vector<LiveRange> liveRanges;
-        explicit LiveRangeData(std::shared_ptr<X86_32AsmRegister> originalRegister)
+        explicit LiveRangeData(std::shared_ptr<X86AsmRegister> originalRegister)
             : originalRegister(originalRegister)
         {
         }
     };
-    std::shared_ptr<LiveRangeData> getOrMakeLiveRange(std::unordered_map<std::shared_ptr<X86_32AsmRegister>, std::shared_ptr<LiveRangeData>> &registerToLiveRangeMap, std::shared_ptr<X86_32AsmRegister> r, std::unordered_set<std::shared_ptr<LiveRangeData>> &liveRanges) const
+    std::shared_ptr<LiveRangeData> getOrMakeLiveRange(std::unordered_map<std::shared_ptr<X86AsmRegister>, std::shared_ptr<LiveRangeData>> &registerToLiveRangeMap, std::shared_ptr<X86AsmRegister> r, std::unordered_set<std::shared_ptr<LiveRangeData>> &liveRanges) const
     {
         std::shared_ptr<LiveRangeData> &retval = registerToLiveRangeMap[r];
         if(retval == nullptr)
@@ -67,12 +68,12 @@ private:
         }
         return retval;
     }
-    void addAllLiveRangeIntersections(const std::unordered_set<std::shared_ptr<X86_32AsmRegister>> &currentlyLiveRegisters, std::unordered_map<std::shared_ptr<X86_32AsmRegister>, std::shared_ptr<LiveRangeData>> &registerToLiveRangeMap, std::unordered_set<std::shared_ptr<LiveRangeData>> &liveRanges) const
+    void addAllLiveRangeIntersections(const std::unordered_set<std::shared_ptr<X86AsmRegister>> &currentlyLiveRegisters, std::unordered_map<std::shared_ptr<X86AsmRegister>, std::shared_ptr<LiveRangeData>> &registerToLiveRangeMap, std::unordered_set<std::shared_ptr<LiveRangeData>> &liveRanges) const
     {
-        for(std::shared_ptr<X86_32AsmRegister> r1 : currentlyLiveRegisters)
+        for(std::shared_ptr<X86AsmRegister> r1 : currentlyLiveRegisters)
         {
             std::shared_ptr<LiveRangeData> liveRange1 = getOrMakeLiveRange(registerToLiveRangeMap, r1, liveRanges);
-            for(std::shared_ptr<X86_32AsmRegister> r2 : currentlyLiveRegisters)
+            for(std::shared_ptr<X86AsmRegister> r2 : currentlyLiveRegisters)
             {
                 std::shared_ptr<LiveRangeData> liveRange2 = getOrMakeLiveRange(registerToLiveRangeMap, r2, liveRanges);
                 liveRange1->intersectingLiveRanges.insert(liveRange2);
@@ -80,28 +81,28 @@ private:
             }
         }
     }
-    void calculateLiveRanges(std::shared_ptr<X86_32AsmFunction> function, std::unordered_set<std::shared_ptr<LiveRangeData>> &liveRanges) const
+    void calculateLiveRanges(std::shared_ptr<X86AsmFunction> function, std::unordered_set<std::shared_ptr<LiveRangeData>> &liveRanges) const
     {
-        std::unordered_map<std::shared_ptr<X86_32AsmRegister>, std::shared_ptr<LiveRangeData>> registerToLiveRangeMap;
-        std::vector<std::shared_ptr<X86_32AsmRegister>> currentMoveRegisters;
-        for(std::shared_ptr<X86_32AsmBasicBlock> block : function->blocks)
+        std::unordered_map<std::shared_ptr<X86AsmRegister>, std::shared_ptr<LiveRangeData>> registerToLiveRangeMap;
+        std::vector<std::shared_ptr<X86AsmRegister>> currentMoveRegisters;
+        for(std::shared_ptr<X86AsmBasicBlock> block : function->blocks)
         {
-            std::unordered_set<std::shared_ptr<X86_32AsmRegister>> currentlyLiveRegisters = block->liveRegistersAtEnd;
+            std::unordered_set<std::shared_ptr<X86AsmRegister>> currentlyLiveRegisters = block->liveRegistersAtEnd;
             addAllLiveRangeIntersections(currentlyLiveRegisters, registerToLiveRangeMap, liveRanges);
-            std::unordered_map<std::shared_ptr<X86_32AsmRegister>, LiveRangeData::InstructionIterator> liveRangeEnds;
-            for(std::shared_ptr<X86_32AsmRegister> r : currentlyLiveRegisters)
+            std::unordered_map<std::shared_ptr<X86AsmRegister>, LiveRangeData::InstructionIterator> liveRangeEnds;
+            for(std::shared_ptr<X86AsmRegister> r : currentlyLiveRegisters)
             {
                 liveRangeEnds[r] = block->instructions.end();
             }
             for(auto i = block->instructions.end(); i != block->instructions.begin();)
             {
-                std::shared_ptr<X86_32AsmNode> node = *--i;
-                bool isMove = dynamic_cast<const X86_32AsmNodeMove *>(node.get()) != nullptr;
+                std::shared_ptr<X86AsmNode> node = *--i;
+                bool isMove = dynamic_cast<const X86AsmNodeMove *>(node.get()) != nullptr;
                 std::shared_ptr<ValueNode> constantValue = nullptr;
-                if(const X86_32AsmNodeLoadConstant *loadNode = dynamic_cast<const X86_32AsmNodeLoadConstant *>(node.get()))
+                if(const X86AsmNodeLoadConstant *loadNode = dynamic_cast<const X86AsmNodeLoadConstant *>(node.get()))
                     constantValue = loadNode->value;
                 currentMoveRegisters.clear();
-                for(std::shared_ptr<X86_32AsmRegister> r : node->outputSet())
+                for(std::shared_ptr<X86AsmRegister> r : node->outputSet())
                 {
                     std::shared_ptr<LiveRangeData> liveRange = getOrMakeLiveRange(registerToLiveRangeMap, r, liveRanges);
                     if(constantValue != nullptr && liveRange->isConstant && (liveRange->constantValue == nullptr || *liveRange->constantValue == *constantValue))
@@ -119,7 +120,7 @@ private:
                         currentMoveRegisters.push_back(r);
                     liveRange->spillStorePoints.emplace_back(block, i);
                 }
-                for(std::shared_ptr<X86_32AsmRegister> r : node->inputSet())
+                for(std::shared_ptr<X86AsmRegister> r : node->inputSet())
                 {
                     std::shared_ptr<LiveRangeData> liveRange = getOrMakeLiveRange(registerToLiveRangeMap, r, liveRanges);
                     currentlyLiveRegisters.insert(r);
@@ -131,10 +132,10 @@ private:
                 }
                 if(isMove)
                 {
-                    for(std::shared_ptr<X86_32AsmRegister> r1 : currentMoveRegisters)
+                    for(std::shared_ptr<X86AsmRegister> r1 : currentMoveRegisters)
                     {
                         std::shared_ptr<LiveRangeData> liveRange1 = getOrMakeLiveRange(registerToLiveRangeMap, r1, liveRanges);
-                        for(std::shared_ptr<X86_32AsmRegister> r2 : currentMoveRegisters)
+                        for(std::shared_ptr<X86AsmRegister> r2 : currentMoveRegisters)
                         {
                             if(r1 == r2)
                                 continue;
@@ -153,16 +154,16 @@ private:
             }
         }
     }
-    std::size_t getPhysicalRegisterCount(X86_32AsmRegister::PhysicalRegisterKindMask v,
-                                         std::unordered_map<X86_32AsmRegister::PhysicalRegisterKindMask, std::size_t> &physicalRegisterCountsMap,
-                                         const std::vector<std::shared_ptr<X86_32AsmRegister>> &physicalRegisters)
+    std::size_t getPhysicalRegisterCount(X86AsmRegister::PhysicalRegisterKindMask v,
+                                         std::unordered_map<X86AsmRegister::PhysicalRegisterKindMask, std::size_t> &physicalRegisterCountsMap,
+                                         const std::vector<std::shared_ptr<X86AsmRegister>> &physicalRegisters)
     {
         auto iter = physicalRegisterCountsMap.find(v);
         if(iter != physicalRegisterCountsMap.end())
             return std::get<1>(*iter);
         std::size_t &retval = physicalRegisterCountsMap[v];
         retval = 0;
-        for(std::shared_ptr<X86_32AsmRegister> r : physicalRegisters)
+        for(std::shared_ptr<X86AsmRegister> r : physicalRegisters)
         {
             if(r->isSpecialPurpose)
                 continue;
@@ -172,10 +173,14 @@ private:
         return retval;
     }
 public:
-    void visitX86_32AsmFunction(std::shared_ptr<X86_32AsmFunction> function)
+    X86RegisterAllocator(const BackendX86 *backend)
+        : backend(backend)
     {
-        const std::vector<std::shared_ptr<X86_32AsmRegister>> &physicalRegisters = X86_32AsmRegister::getPhysicalRegisters(function->context);
-        std::unordered_map<X86_32AsmRegister::PhysicalRegisterKindMask, std::size_t> physicalRegisterCountsMap;
+    }
+    void visitX86AsmFunction(std::shared_ptr<X86AsmFunction> function)
+    {
+        const std::vector<std::shared_ptr<X86AsmRegister>> &physicalRegisters = X86AsmRegister::getPhysicalRegisters(function->context, backend);
+        std::unordered_map<X86AsmRegister::PhysicalRegisterKindMask, std::size_t> physicalRegisterCountsMap;
         std::unordered_set<std::shared_ptr<LiveRangeData>> liveRanges;
         for(std::size_t tryCount = 0;; tryCount++)
         {
@@ -230,26 +235,26 @@ public:
             {
                 std::shared_ptr<LiveRangeData> liveRange = liveRangeStack.back();
                 liveRangeStack.pop_back();
-                if(liveRange->originalRegister->registerType != X86_32AsmRegister::RegisterType::Virtual)
+                if(liveRange->originalRegister->registerType != X86AsmRegister::RegisterType::Virtual)
                 {
                     liveRange->allocatedRegister = liveRange->originalRegister;
                     continue;
                 }
-                std::unordered_set<std::shared_ptr<X86_32AsmRegister>> intersectingRegisters, preferredRegisters;
+                std::unordered_set<std::shared_ptr<X86AsmRegister>> intersectingRegisters, preferredRegisters;
                 for(std::shared_ptr<LiveRangeData> intersectingLiveRange : liveRange->intersectingLiveRanges)
                 {
                     intersectingRegisters.insert(intersectingLiveRange->originalRegister);
-                    if(intersectingLiveRange->originalRegister && intersectingLiveRange->originalRegister->registerType == X86_32AsmRegister::RegisterType::Physical)
+                    if(intersectingLiveRange->originalRegister && intersectingLiveRange->originalRegister->registerType == X86AsmRegister::RegisterType::Physical)
                     {
-                        for(std::shared_ptr<X86_32AsmRegister> r : intersectingLiveRange->originalRegister->getPhysicalRegisterInterferenceSet())
+                        for(std::shared_ptr<X86AsmRegister> r : intersectingLiveRange->originalRegister->getPhysicalRegisterInterferenceSet())
                         {
                             intersectingRegisters.insert(r);
                         }
                     }
                     intersectingRegisters.insert(intersectingLiveRange->allocatedRegister);
-                    if(intersectingLiveRange->allocatedRegister && intersectingLiveRange->allocatedRegister->registerType == X86_32AsmRegister::RegisterType::Physical)
+                    if(intersectingLiveRange->allocatedRegister && intersectingLiveRange->allocatedRegister->registerType == X86AsmRegister::RegisterType::Physical)
                     {
-                        for(std::shared_ptr<X86_32AsmRegister> r : intersectingLiveRange->allocatedRegister->getPhysicalRegisterInterferenceSet())
+                        for(std::shared_ptr<X86AsmRegister> r : intersectingLiveRange->allocatedRegister->getPhysicalRegisterInterferenceSet())
                         {
                             intersectingRegisters.insert(r);
                         }
@@ -260,8 +265,8 @@ public:
                     preferredRegisters.insert(preferredLiveRange->originalRegister);
                     preferredRegisters.insert(preferredLiveRange->allocatedRegister);
                 }
-                std::shared_ptr<X86_32AsmRegister> pickedRegister = nullptr;
-                for(std::shared_ptr<X86_32AsmRegister> r : physicalRegisters)
+                std::shared_ptr<X86AsmRegister> pickedRegister = nullptr;
+                for(std::shared_ptr<X86AsmRegister> r : physicalRegisters)
                 {
                     if(r->isSpecialPurpose && preferredRegisters.count(r) == 0)
                     {
@@ -301,7 +306,7 @@ public:
                     spillLocation = liveRange->originalRegister->physicalRegisterKindMask.createSpillLocation(function->localVariablesSize);
                 for(auto p : liveRange->spillLoadPoints)
                 {
-                    std::shared_ptr<X86_32AsmBasicBlock> block = std::get<0>(p);
+                    std::shared_ptr<X86AsmBasicBlock> block = std::get<0>(p);
                     auto pos = std::get<1>(p);
                     bool good = false;
                     for(LiveRangeData::LiveRange r : liveRange->liveRanges)
@@ -320,21 +325,21 @@ public:
                     {
                         if(liveRange->isConstant && liveRange->constantValue)
                         {
-                            std::shared_ptr<X86_32AsmNode> node = std::make_shared<X86_32AsmNodeLoadConstant>(liveRange->originalRegister, liveRange->constantValue);
+                            std::shared_ptr<X86AsmNode> node = std::make_shared<X86AsmNodeLoadConstant>(liveRange->originalRegister, liveRange->constantValue);
                             block->instructions.insert(pos, node);
                         }
                         else
                         {
                             if(spillLocation.kind != SpillLocation::Kind::LocalVariable)
                                 throw std::runtime_error("register spill location kind not implemented");
-                            std::shared_ptr<X86_32AsmNode> node = std::make_shared<X86_32AsmNodeLoadLocal>(liveRange->originalRegister, VariableLocation(spillLocation.variable));
+                            std::shared_ptr<X86AsmNode> node = std::make_shared<X86AsmNodeLoadLocal>(liveRange->originalRegister, VariableLocation(spillLocation.variable));
                             block->instructions.insert(pos, node);
                         }
                     }
                 }
                 for(auto p : liveRange->spillStorePoints)
                 {
-                    std::shared_ptr<X86_32AsmBasicBlock> block = std::get<0>(p);
+                    std::shared_ptr<X86AsmBasicBlock> block = std::get<0>(p);
                     auto pos = std::get<1>(p);
                     bool good = false;
                     for(LiveRangeData::LiveRange r : liveRange->liveRanges)
@@ -355,33 +360,33 @@ public:
                         {
                             if(spillLocation.kind != SpillLocation::Kind::LocalVariable)
                                 throw std::runtime_error("register spill location kind not implemented");
-                            std::shared_ptr<X86_32AsmNode> node = std::make_shared<X86_32AsmNodeStoreLocal>(VariableLocation(spillLocation.variable), liveRange->originalRegister);
+                            std::shared_ptr<X86AsmNode> node = std::make_shared<X86AsmNodeStoreLocal>(VariableLocation(spillLocation.variable), liveRange->originalRegister);
                             block->instructions.insert(pos + 1, node);
                         }
                     }
                 }
             }
-            X86_32ConstructLivenessInfo().visitX86_32AsmFunction(function);
+            X86ConstructLivenessInfo().visitX86AsmFunction(function);
         }
         for(std::shared_ptr<LiveRangeData> liveRange : liveRanges)
         {
-            std::shared_ptr<X86_32AsmRegister> originalRegister = liveRange->originalRegister;
-            std::shared_ptr<X86_32AsmRegister> allocatedRegister = liveRange->allocatedRegister;
+            std::shared_ptr<X86AsmRegister> originalRegister = liveRange->originalRegister;
+            std::shared_ptr<X86AsmRegister> allocatedRegister = liveRange->allocatedRegister;
             if(originalRegister == allocatedRegister)
                 continue;
-            for(std::shared_ptr<X86_32AsmBasicBlock> block : function->blocks)
+            for(std::shared_ptr<X86AsmBasicBlock> block : function->blocks)
             {
-                for(std::shared_ptr<X86_32AsmNode> node : block->instructions)
+                for(std::shared_ptr<X86AsmNode> node : block->instructions)
                 {
                     node->replaceRegister(originalRegister, allocatedRegister);
                 }
             }
         }
-        for(std::shared_ptr<X86_32AsmBasicBlock> block : function->blocks)
+        for(std::shared_ptr<X86AsmBasicBlock> block : function->blocks)
         {
             for(auto i = block->instructions.begin(); i != block->instructions.end();)
             {
-                std::shared_ptr<X86_32AsmNodeMove> node = std::dynamic_pointer_cast<X86_32AsmNodeMove>(*i);
+                std::shared_ptr<X86AsmNodeMove> node = std::dynamic_pointer_cast<X86AsmNodeMove>(*i);
                 if(node != nullptr && node->source == node->dest)
                     i = block->instructions.erase(i);
                 else
@@ -391,4 +396,4 @@ public:
     }
 };
 
-#endif // X86_32_REGISTER_ALLOCATOR_H_INCLUDED
+#endif // X86_REGISTER_ALLOCATOR_H_INCLUDED

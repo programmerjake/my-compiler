@@ -16,25 +16,26 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#ifndef X86_64_ASM_WRITER_H_INCLUDED
-#define X86_64_ASM_WRITER_H_INCLUDED
+#ifndef X86_ASM_WRITER_H_INCLUDED
+#define X86_ASM_WRITER_H_INCLUDED
 
-#include "backend/x86_64/x86_64_asm_nodes.h"
+#include "backend/x86/x86_asm_nodes.h"
 #include <ostream>
 #include <string>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
 
-class X86_64AsmWriter_GAS_Intel final : public X86_64AsmNodeVisitor
+class X86AsmWriter_GAS_Intel final : public X86AsmNodeVisitor
 {
 private:
+    const BackendX86 *const backend;
     std::ostream &os;
     bool doBlockJoining = true;
-    std::unordered_map<std::shared_ptr<X86_64AsmBasicBlock>, std::string> blockLabelMap;
-    std::unordered_map<std::shared_ptr<X86_64AsmBasicBlock>, bool> blockJoinMap;
+    std::unordered_map<std::shared_ptr<X86AsmBasicBlock>, std::string> blockLabelMap;
+    std::unordered_map<std::shared_ptr<X86AsmBasicBlock>, bool> blockJoinMap;
     std::size_t nextLabelIndex = 0;
-    std::string getBlockLabel(std::shared_ptr<X86_64AsmBasicBlock> block)
+    std::string getBlockLabel(std::shared_ptr<X86AsmBasicBlock> block)
     {
         auto iter = blockLabelMap.find(block);
         if(iter != blockLabelMap.end())
@@ -43,12 +44,12 @@ private:
         ss << ".Ltmp" << ++nextLabelIndex;
         return blockLabelMap[block] = ss.str();
     }
-    void writeBlockLabel(std::shared_ptr<X86_64AsmBasicBlock> block)
+    void writeBlockLabel(std::shared_ptr<X86AsmBasicBlock> block)
     {
         os << getBlockLabel(block) << ":\n";
     }
-    X86_64AsmWriter_GAS_Intel(std::ostream &os)
-        : os(os)
+    X86AsmWriter_GAS_Intel(std::ostream &os, const BackendX86 *backend)
+        : backend(backend), os(os)
     {
     }
     enum class Phase
@@ -57,21 +58,21 @@ private:
         Write
     };
     Phase phase = Phase::CreateBlockJoinMap;
-    std::shared_ptr<X86_64AsmBasicBlock> currentBlock, nextBlock;
+    std::shared_ptr<X86AsmBasicBlock> currentBlock, nextBlock;
     std::uint64_t alignedLocalsSize = 0;
     struct SavedRegister final
     {
-        std::shared_ptr<X86_64AsmRegister> r;
+        std::shared_ptr<X86AsmRegister> r;
         std::uint64_t saveLocationStart;
         bool isFloatingPoint;
-        SavedRegister(std::shared_ptr<X86_64AsmRegister> r, std::uint64_t saveLocationStart, bool isFloatingPoint)
+        SavedRegister(std::shared_ptr<X86AsmRegister> r, std::uint64_t saveLocationStart, bool isFloatingPoint)
             : r(r), saveLocationStart(saveLocationStart), isFloatingPoint(isFloatingPoint)
         {
         }
     };
     std::list<SavedRegister> savedRegisters;
 public:
-    virtual void visitX86_64AsmNodeJump(std::shared_ptr<X86_64AsmNodeJump> node) override
+    virtual void visitX86AsmNodeJump(std::shared_ptr<X86AsmNodeJump> node) override
     {
         switch(phase)
         {
@@ -87,7 +88,7 @@ public:
             break;
         }
     }
-    virtual void visitX86_64AsmNodeCompareAgainstConstantAndJump(std::shared_ptr<X86_64AsmNodeCompareAgainstConstantAndJump> node) override
+    virtual void visitX86AsmNodeCompareAgainstConstantAndJump(std::shared_ptr<X86AsmNodeCompareAgainstConstantAndJump> node) override
     {
         switch(phase)
         {
@@ -115,9 +116,9 @@ public:
                 throw NotImplementedException("type not implemented");
             os << "    cmp %" << node->lhs->name << ", " << (rhs->value ? "1" : "0") << "\n";
             if(reversed)
-                os << "    " << X86_64GetJmpName(X86_64InvertCondition(node->conditionType)) << " " << getBlockLabel(node->falseTarget.lock()) << "\n";
+                os << "    " << X86GetJmpName(X86InvertCondition(node->conditionType)) << " " << getBlockLabel(node->falseTarget.lock()) << "\n";
             else
-                os << "    " << X86_64GetJmpName(node->conditionType) << " " << getBlockLabel(node->trueTarget.lock()) << "\n";
+                os << "    " << X86GetJmpName(node->conditionType) << " " << getBlockLabel(node->trueTarget.lock()) << "\n";
             if(!skipFinalJump)
             {
                 if(reversed)
@@ -129,46 +130,46 @@ public:
         }
         }
     }
-    virtual void visitX86_64AsmNodeCompare(std::shared_ptr<X86_64AsmNodeCompare> node) override
+    virtual void visitX86AsmNodeCompare(std::shared_ptr<X86AsmNodeCompare> node) override
     {
         os << "    cmp %" << node->lhs->name << ", %" << node->rhs->name << "\n";
-        os << "    " << X86_64GetSetName(node->conditionType) << " %" << node->dest->name << "\n";
+        os << "    " << X86GetSetName(node->conditionType) << " %" << node->dest->name << "\n";
     }
-    virtual void visitX86_64AsmNodeMove(std::shared_ptr<X86_64AsmNodeMove> node) override
+    virtual void visitX86AsmNodeMove(std::shared_ptr<X86AsmNodeMove> node) override
     {
         os << "    mov %" << node->dest->name << ", %" << node->source->name << "\n";
     }
-    virtual void visitX86_64AsmNodeLoadConstant(std::shared_ptr<X86_64AsmNodeLoadConstant> node) override
+    virtual void visitX86AsmNodeLoadConstant(std::shared_ptr<X86AsmNodeLoadConstant> node) override
     {
         if(std::shared_ptr<ValueBoolean> valueBoolean = std::dynamic_pointer_cast<ValueBoolean>(node->value))
             os << "    mov %" << node->dest->name << ", " << (valueBoolean->value ? "1" : "0") << "\n";
         else if(std::shared_ptr<ValueVariablePointer> valueVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(node->value))
         {
-            os << "    lea %" << node->dest->name << ", [%rbp - " << (alignedLocalsSize - valueVariablePointer->location.getStart()) << "]\n";
+            os << "    lea %" << node->dest->name << ", [%" << X86AsmRegister::getBasePointer(node->context, backend)->name << " - " << (alignedLocalsSize - valueVariablePointer->location.getStart()) << "]\n";
         }
         else if(std::shared_ptr<ValueNullPointer> valueNullPointer = std::dynamic_pointer_cast<ValueNullPointer>(node->value))
             os << "    mov %" << node->dest->name << ", 0\n";
         else
             throw NotImplementedException("type not implemented");
     }
-    virtual void visitX86_64AsmNodeLoad(std::shared_ptr<X86_64AsmNodeLoad> node) override
+    virtual void visitX86AsmNodeLoad(std::shared_ptr<X86AsmNodeLoad> node) override
     {
         os << "    mov %" << node->dest->name << ", [%" << node->address->name << "]\n";
     }
-    virtual void visitX86_64AsmNodeStore(std::shared_ptr<X86_64AsmNodeStore> node) override
+    virtual void visitX86AsmNodeStore(std::shared_ptr<X86AsmNodeStore> node) override
     {
         os << "    mov [%" << node->address->name << "], %" << node->value->name << "\n";
     }
-    virtual void visitX86_64AsmNodeLoadLocal(std::shared_ptr<X86_64AsmNodeLoadLocal> node) override
+    virtual void visitX86AsmNodeLoadLocal(std::shared_ptr<X86AsmNodeLoadLocal> node) override
     {
-        os << "    mov %" << node->dest->name << ", [%rbp - " << (alignedLocalsSize - node->location.getStart()) << "]\n";
+        os << "    mov %" << node->dest->name << ", [%" << X86AsmRegister::getBasePointer(node->context, backend)->name << " - " << (alignedLocalsSize - node->location.getStart()) << "]\n";
     }
-    virtual void visitX86_64AsmNodeStoreLocal(std::shared_ptr<X86_64AsmNodeStoreLocal> node) override
+    virtual void visitX86AsmNodeStoreLocal(std::shared_ptr<X86AsmNodeStoreLocal> node) override
     {
-        os << "    mov [%rbp - " << (alignedLocalsSize - node->location.getStart()) << "], %" << node->value->name << "\n";
+        os << "    mov [%" << X86AsmRegister::getBasePointer(node->context, backend)->name << " - " << (alignedLocalsSize - node->location.getStart()) << "], %" << node->value->name << "\n";
     }
 private:
-    void visitX86_64AsmBasicBlock(std::shared_ptr<X86_64AsmBasicBlock> block, bool writeAlign)
+    void visitX86AsmBasicBlock(std::shared_ptr<X86AsmBasicBlock> block, bool writeAlign)
     {
         currentBlock = block;
         switch(phase)
@@ -188,7 +189,7 @@ private:
                 os << "    .align 16, 0x90\n";
             }
             writeBlockLabel(block);
-            for(std::shared_ptr<X86_64AsmNode> node : block->instructions)
+            for(std::shared_ptr<X86AsmNode> node : block->instructions)
             {
                 node->visit(*this);
             }
@@ -199,26 +200,38 @@ private:
                 {
                     if(r.isFloatingPoint)
                     {
-                        os << "    movaps %" << r.r->name << ", [%rbp - " << (alignedLocalsSize - r.saveLocationStart) << "]\n";
+                        os << "    movaps %" << r.r->name << ", [%" << X86AsmRegister::getBasePointer(block->context, backend)->name << " - " << (alignedLocalsSize - r.saveLocationStart) << "]\n";
                     }
                     else
                     {
-                        os << "    mov %" << r.r->name << ", [%rbp - " << (alignedLocalsSize - r.saveLocationStart) << "]\n";
+                        os << "    mov %" << r.r->name << ", [%" << X86AsmRegister::getBasePointer(block->context, backend)->name << " - " << (alignedLocalsSize - r.saveLocationStart) << "]\n";
                         os << "    .cfi_restore %" << r.r->name << "\n";
                     }
                 }
-                os << "    mov %rsp, %rbp\n";
-                os << "    pop %rbp\n";
-                os << "    .cfi_def_cfa %rsp, 8\n";
-                os << "    ret\n";
-                os << "    .cfi_restore_state\n";
+                switch(backend->architecture)
+                {
+                case BackendX86::X86_32:
+                    os << "    mov %esp, %ebp\n";
+                    os << "    pop %ebp\n";
+                    os << "    .cfi_def_cfa %esp, 4\n";
+                    os << "    ret\n";
+                    os << "    .cfi_restore_state\n";
+                    break;
+                case BackendX86::X86_64:
+                    os << "    mov %rsp, %rbp\n";
+                    os << "    pop %rbp\n";
+                    os << "    .cfi_def_cfa %rsp, 8\n";
+                    os << "    ret\n";
+                    os << "    .cfi_restore_state\n";
+                    break;
+                }
             }
             os << "\n";
             break;
         }
         }
     }
-    void visitX86_64AsmFunction(std::shared_ptr<X86_64AsmFunction> function)
+    void visitX86AsmFunction(std::shared_ptr<X86AsmFunction> function)
     {
         os << "    .text\n";
         os << "    .globl main\n";
@@ -226,18 +239,30 @@ private:
         os << "    .type main, @function\n";
         os << "main:\n";
         os << "    .cfi_startproc\n";
-        os << "    push %rbp\n";
-        os << "    .cfi_def_cfa_offset 16\n";
-        os << "    .cfi_offset %rbp, -16\n";
-        os << "    mov %rbp, %rsp\n";
-        os << "    .cfi_def_cfa_register %rbp\n";
-        savedRegisters.clear();
-        std::unordered_set<std::shared_ptr<X86_64AsmRegister>> savedRegistersSet;
-        for(std::shared_ptr<X86_64AsmBasicBlock> block : function->blocks)
+        switch(backend->architecture)
         {
-            for(std::shared_ptr<X86_64AsmNode> node : block->instructions)
+        case BackendX86::X86_32:
+            os << "    push %ebp\n";
+            os << "    .cfi_def_cfa_offset 8\n";
+            os << "    mov %ebp, %esp\n";
+            os << "    .cfi_offset %ebp, -8\n";
+            os << "    .cfi_def_cfa_register %ebp\n";
+            break;
+        case BackendX86::X86_64:
+            os << "    push %rbp\n";
+            os << "    .cfi_def_cfa_offset 16\n";
+            os << "    .cfi_offset %rbp, -16\n";
+            os << "    mov %rbp, %rsp\n";
+            os << "    .cfi_def_cfa_register %rbp\n";
+            break;
+        }
+        savedRegisters.clear();
+        std::unordered_set<std::shared_ptr<X86AsmRegister>> savedRegistersSet;
+        for(std::shared_ptr<X86AsmBasicBlock> block : function->blocks)
+        {
+            for(std::shared_ptr<X86AsmNode> node : block->instructions)
             {
-                for(std::shared_ptr<X86_64AsmRegister> r : node->outputSet())
+                for(std::shared_ptr<X86AsmRegister> r : node->outputSet())
                 {
                     r = r->getSaveRegister();
                     if(r == nullptr || r->isSpecialPurpose || !r->isCalleeSave)
@@ -246,32 +271,53 @@ private:
                 }
             }
         }
-        for(std::shared_ptr<X86_64AsmRegister> r : savedRegistersSet)
+        for(std::shared_ptr<X86AsmRegister> r : savedRegistersSet)
         {
-            savedRegisters.push_front(SavedRegister(r, r->physicalRegisterKindMask.createSaveLocation(function->localVariablesSize), static_cast<bool>(r->physicalRegisterKindMask & X86_64AsmRegister::PhysicalRegisterKindMask::Float())));
+            savedRegisters.push_front(SavedRegister(r, r->physicalRegisterKindMask.createSaveLocation(function->localVariablesSize), static_cast<bool>(r->physicalRegisterKindMask & X86AsmRegister::PhysicalRegisterKindMask::Float())));
         }
         savedRegistersSet.clear();
         const std::uint64_t stackAlign = 16;
         alignedLocalsSize = ((function->localVariablesSize + (stackAlign - 1)) / stackAlign) * stackAlign;
-        if(alignedLocalsSize != 0)
-            os << "    sub %rsp, " << alignedLocalsSize << "\n";
-        for(const SavedRegister &r : savedRegisters)
+        switch(backend->architecture)
         {
-            if(r.isFloatingPoint)
+        case BackendX86::X86_32:
+            if(alignedLocalsSize != 0)
+                os << "    sub %esp, " << alignedLocalsSize << "\n";
+            for(const SavedRegister &r : savedRegisters)
             {
-                os << "    movaps [%rbp - " << (alignedLocalsSize - r.saveLocationStart) << "], %" << r.r->name << "\n";
+                if(r.isFloatingPoint)
+                {
+                    os << "    movaps [%ebp - " << (alignedLocalsSize - r.saveLocationStart) << "], %" << r.r->name << "\n";
+                }
+                else
+                {
+                    os << "    mov [%ebp - " << (alignedLocalsSize - r.saveLocationStart) << "], %" << r.r->name << "\n";
+                    os << "    .cfi_rel_offset %" << r.r->name << ", " << (alignedLocalsSize - r.saveLocationStart) << "\n";
+                }
             }
-            else
+            break;
+        case BackendX86::X86_64:
+            if(alignedLocalsSize != 0)
+                os << "    sub %rsp, " << alignedLocalsSize << "\n";
+            for(const SavedRegister &r : savedRegisters)
             {
-                os << "    mov [%rbp - " << (alignedLocalsSize - r.saveLocationStart) << "], %" << r.r->name << "\n";
-                os << "    .cfi_rel_offset %" << r.r->name << ", " << (alignedLocalsSize - r.saveLocationStart) << "\n";
+                if(r.isFloatingPoint)
+                {
+                    os << "    movaps [%rbp - " << (alignedLocalsSize - r.saveLocationStart) << "], %" << r.r->name << "\n";
+                }
+                else
+                {
+                    os << "    mov [%rbp - " << (alignedLocalsSize - r.saveLocationStart) << "], %" << r.r->name << "\n";
+                    os << "    .cfi_rel_offset %" << r.r->name << ", " << (alignedLocalsSize - r.saveLocationStart) << "\n";
+                }
             }
+            break;
         }
         os << "\n";
-        std::vector<std::shared_ptr<X86_64AsmBasicBlock>> blocks;
+        std::vector<std::shared_ptr<X86AsmBasicBlock>> blocks;
         blocks.reserve(function->blocks.size());
         blocks.push_back(function->startBlock);
-        for(std::shared_ptr<X86_64AsmBasicBlock> block : function->blocks)
+        for(std::shared_ptr<X86AsmBasicBlock> block : function->blocks)
         {
             blockJoinMap[block] = false;
             if(block == function->startBlock)
@@ -281,36 +327,36 @@ private:
         phase = Phase::CreateBlockJoinMap;
         for(std::size_t i = 0; i < blocks.size(); i++)
         {
-            std::shared_ptr<X86_64AsmBasicBlock> block = blocks[i];
+            std::shared_ptr<X86AsmBasicBlock> block = blocks[i];
             if(i + 1 >= blocks.size())
                 nextBlock = nullptr;
             else
                 nextBlock = blocks[i + 1];
-            visitX86_64AsmBasicBlock(block, block != function->startBlock);
+            visitX86AsmBasicBlock(block, block != function->startBlock);
         }
         phase = Phase::Write;
         for(std::size_t i = 0; i < blocks.size(); i++)
         {
-            std::shared_ptr<X86_64AsmBasicBlock> block = blocks[i];
+            std::shared_ptr<X86AsmBasicBlock> block = blocks[i];
             if(i + 1 >= blocks.size())
                 nextBlock = nullptr;
             else
                 nextBlock = blocks[i + 1];
-            visitX86_64AsmBasicBlock(block, block != function->startBlock);
+            visitX86AsmBasicBlock(block, block != function->startBlock);
         }
         os << "    .cfi_endproc\n";
         os << "\n\n";
     }
 public:
-    static void run(std::ostream &os, const std::list<std::shared_ptr<X86_64AsmFunction>> &functions)
+    static void run(std::ostream &os, const std::list<std::shared_ptr<X86AsmFunction>> &functions, const BackendX86 *backend)
     {
-        X86_64AsmWriter_GAS_Intel writer(os);
+        X86AsmWriter_GAS_Intel writer(os, backend);
         os << ".intel_syntax prefix\n\n";
-        for(std::shared_ptr<X86_64AsmFunction> function : functions)
+        for(std::shared_ptr<X86AsmFunction> function : functions)
         {
-            writer.visitX86_64AsmFunction(function);
+            writer.visitX86AsmFunction(function);
         }
     }
 };
 
-#endif // X86_64_ASM_WRITER_H_INCLUDED
+#endif // X86_ASM_WRITER_H_INCLUDED

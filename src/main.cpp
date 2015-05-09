@@ -29,8 +29,7 @@
 #include "optimization/control_flow_simplification/control_flow_simplification.h"
 #include "convert_ssa_to_rtl.h"
 #include "backend/backend.h"
-#include "backend/x86_64/x86_64_backend.h"
-#include "backend/x86_32/x86_32_backend.h"
+#include "backend/x86/x86_backend.h"
 #include "optimization/memory_to_register/memory_to_register.h"
 #include <getopt.h>
 
@@ -66,12 +65,12 @@ const ArchitectureDescriptor architectures[] =
 {
     {"x86_64", []()->std::shared_ptr<Backend>
         {
-            return std::make_shared<BackendX86_64>(BackendX86_64::AssemblyDialect::GAS_Intel);
+            return std::make_shared<BackendX86>(BackendX86::AssemblyDialect::GAS_Intel, BackendX86::X86_64);
         }
     },
     {"x86_32", []()->std::shared_ptr<Backend>
         {
-            return std::make_shared<BackendX86_32>(BackendX86_32::AssemblyDialect::GAS_Intel);
+            return std::make_shared<BackendX86>(BackendX86::AssemblyDialect::GAS_Intel, BackendX86::X86_32);
         }
     },
 };

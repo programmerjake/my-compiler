@@ -16,17 +16,17 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#ifndef X86_32_CONSTRUCT_LIVENESS_INFO_H_INCLUDED
-#define X86_32_CONSTRUCT_LIVENESS_INFO_H_INCLUDED
+#ifndef X86_CONSTRUCT_LIVENESS_INFO_H_INCLUDED
+#define X86_CONSTRUCT_LIVENESS_INFO_H_INCLUDED
 
-#include "backend/x86_32/x86_32_asm_nodes.h"
+#include "backend/x86/x86_asm_nodes.h"
 
-class X86_32ConstructLivenessInfo final
+class X86ConstructLivenessInfo final
 {
 public:
-    void visitX86_32AsmFunction(std::shared_ptr<X86_32AsmFunction> function) const
+    void visitX86AsmFunction(std::shared_ptr<X86AsmFunction> function) const
     {
-        for(std::shared_ptr<X86_32AsmBasicBlock> block : function->blocks)
+        for(std::shared_ptr<X86AsmBasicBlock> block : function->blocks)
         {
             block->assignedRegisters.clear();
             block->usedRegistersAtStart.clear();
@@ -34,12 +34,12 @@ public:
             block->liveRegistersAtEnd.clear();
             for(auto i = block->instructions.rbegin(); i != block->instructions.rend(); ++i)
             {
-                for(std::shared_ptr<X86_32AsmRegister> outputRegister : (*i)->outputSet())
+                for(std::shared_ptr<X86AsmRegister> outputRegister : (*i)->outputSet())
                 {
                     block->usedRegistersAtStart.erase(outputRegister);
                     block->assignedRegisters.insert(outputRegister);
                 }
-                for(std::shared_ptr<X86_32AsmRegister> inputRegister : (*i)->inputSet())
+                for(std::shared_ptr<X86AsmRegister> inputRegister : (*i)->inputSet())
                 {
                     block->usedRegistersAtStart.insert(inputRegister);
                 }
@@ -50,9 +50,9 @@ public:
         while(!done)
         {
             done = true;
-            for(std::shared_ptr<X86_32AsmBasicBlock> block : function->blocks)
+            for(std::shared_ptr<X86AsmBasicBlock> block : function->blocks)
             {
-                for(std::shared_ptr<X86_32AsmRegister> r : block->liveRegistersAtEnd)
+                for(std::shared_ptr<X86AsmRegister> r : block->liveRegistersAtEnd)
                 {
                     if(block->assignedRegisters.count(r) != 0)
                         continue;
@@ -61,10 +61,10 @@ public:
                         done = false;
                     }
                 }
-                for(std::weak_ptr<X86_32AsmBasicBlock> targetW : block->destBlocks)
+                for(std::weak_ptr<X86AsmBasicBlock> targetW : block->destBlocks)
                 {
-                    std::shared_ptr<X86_32AsmBasicBlock> target = targetW.lock();
-                    for(std::shared_ptr<X86_32AsmRegister> r : target->liveRegistersAtStart)
+                    std::shared_ptr<X86AsmBasicBlock> target = targetW.lock();
+                    for(std::shared_ptr<X86AsmRegister> r : target->liveRegistersAtStart)
                     {
                         if(std::get<1>(block->liveRegistersAtEnd.insert(r)))
                         {
@@ -77,4 +77,4 @@ public:
     }
 };
 
-#endif // X86_32_CONSTRUCT_LIVENESS_INFO_H_INCLUDED
+#endif // X86_CONSTRUCT_LIVENESS_INFO_H_INCLUDED

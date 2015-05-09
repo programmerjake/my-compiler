@@ -26,8 +26,6 @@
 #include <unordered_set>
 #include <vector>
 #include "construct_basic_block_graph.h"
-#include "dump.h"
-#include <iostream>
 #include <cassert>
 
 /** simplify control flow
@@ -44,8 +42,6 @@ public:
         while(!done)
         {
             function->verify();
-            dumper.visitSSAFunction(function);
-            std::cout << std::endl << std::endl;
             done = true;
             for(std::shared_ptr<SSABasicBlock> firstBlock : function->blocks)
             {
@@ -57,12 +53,10 @@ public:
                     if(firstBlock->instructions.size() != 1)
                         continue;
                     function->replaceBlock(firstBlock, secondBlock);
-                    std::cout << "replaceBlock(" << dumper.getSSABasicBlockDisplayValue(firstBlock) << ", " << dumper.getSSABasicBlockDisplayValue(secondBlock) << ")" << std::endl;
                     done = false;
                     break;
                 }
                 function->mergeBlocks(firstBlock, secondBlock);
-                std::cout << "mergeBlocks(" << dumper.getSSABasicBlockDisplayValue(firstBlock) << ", " << dumper.getSSABasicBlockDisplayValue(secondBlock) << ")" << std::endl;
                 done = false;
                 break;
             }
