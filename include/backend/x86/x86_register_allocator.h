@@ -240,7 +240,7 @@ public:
                     liveRange->allocatedRegister = liveRange->originalRegister;
                     continue;
                 }
-                std::unordered_set<std::shared_ptr<X86AsmRegister>> intersectingRegisters, preferredRegisters;
+                std::unordered_set<std::shared_ptr<X86AsmRegister>> intersectingRegisters, preferredRegisters, avoidedRegisters;
                 for(std::shared_ptr<LiveRangeData> intersectingLiveRange : liveRange->intersectingLiveRanges)
                 {
                     intersectingRegisters.insert(intersectingLiveRange->originalRegister);
@@ -264,8 +264,28 @@ public:
                 {
                     preferredRegisters.insert(preferredLiveRange->originalRegister);
                     preferredRegisters.insert(preferredLiveRange->allocatedRegister);
+                    for(std::shared_ptr<LiveRangeData> intersectingLiveRange : preferredLiveRange->intersectingLiveRanges)
+                    {
+                        avoidedRegisters.insert(intersectingLiveRange->originalRegister);
+                        if(intersectingLiveRange->originalRegister && intersectingLiveRange->originalRegister->registerType == X86AsmRegister::RegisterType::Physical)
+                        {
+                            for(std::shared_ptr<X86AsmRegister> r : intersectingLiveRange->originalRegister->getPhysicalRegisterInterferenceSet())
+                            {
+                                avoidedRegisters.insert(r);
+                            }
+                        }
+                        avoidedRegisters.insert(intersectingLiveRange->allocatedRegister);
+                        if(intersectingLiveRange->allocatedRegister && intersectingLiveRange->allocatedRegister->registerType == X86AsmRegister::RegisterType::Physical)
+                        {
+                            for(std::shared_ptr<X86AsmRegister> r : intersectingLiveRange->allocatedRegister->getPhysicalRegisterInterferenceSet())
+                            {
+                                avoidedRegisters.insert(r);
+                            }
+                        }
+                    }
                 }
                 std::shared_ptr<X86AsmRegister> pickedRegister = nullptr;
+                bool isPickedRegisterAvoided = true;
                 for(std::shared_ptr<X86AsmRegister> r : physicalRegisters)
                 {
                     if(r->isSpecialPurpose && preferredRegisters.count(r) == 0)
@@ -280,8 +300,12 @@ public:
                     {
                         continue;
                     }
-                    if(pickedRegister == nullptr)
+                    bool isCurrentPickedRegisterAvoided = (avoidedRegisters.count(r) != 0);
+                    if(pickedRegister == nullptr || (!isCurrentPickedRegisterAvoided && isPickedRegisterAvoided))
+                    {
                         pickedRegister = r;
+                        isPickedRegisterAvoided = isCurrentPickedRegisterAvoided;
+                    }
                     if(preferredRegisters.count(r) != 0)
                     {
                         pickedRegister = r;

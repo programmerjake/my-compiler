@@ -11,7 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="--arch=x86_64" />
+				<Option parameters="--arch=x86_32" />
 				<Compiler>
 					<Add option="-g" />
 					<Add option="-Wold-style-cast" />

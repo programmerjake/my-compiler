@@ -35,24 +35,16 @@
 
 std::string getSourceCode()
 {
-#if 0
     return
-R"(boolean a = true, b = false;
-if(a)
-    b = true;
-if(b)
-    a = false;
-)";
-#else
-    return
-R"(for(boolean x = true, y = true, z = true; z; z = y, y = x)
-{
-    boolean *a = &x;
-    if(a == &x)
-        *a = false;
-}
-)";
-#endif
+        "for(boolean x = true, y = true, z = true; z; z = y, y = x, x = false)\n"
+        "{\n"
+        "    volatile boolean v = x;\n"
+        "    volatile boolean v2 = y;\n"
+        "    volatile boolean *a = &v;\n"
+        "    if(x)\n"
+        "        a = &v2;\n"
+        "    *a = false;\n"
+        "}\n";
 }
 
 struct ArchitectureDescriptor final

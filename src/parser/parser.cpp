@@ -256,7 +256,7 @@ private:
             convertValueToRValue();
             Value newValue = valueStack.back();
             valueStack.pop_back();
-            if(newValue.type != variable.type)
+            if(newValue.type->toNonConstant()->toNonVolatile() != variable.type->toNonVolatile())
                 throw ParseError("types don't match for =");
             std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(variable.node, newValue.node);
             currentBasicBlock->instructions.push_back(storeNode);
@@ -399,12 +399,26 @@ private:
                 throw ParseError("invalid type for variable");
             std::shared_ptr<Symbol> symbol = std::make_shared<Symbol>(name, theType, function);
             addSymbolToTopSymbolTable(symbol);
-            std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(initialValue, nullptr);
-            currentBasicBlock->instructions.push_back(node);
-            std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(symbol->addressNode, node);
-            currentBasicBlock->instructions.push_back(storeNode);
-            expression(true);
-            valueStack.pop_back();
+            tokenizer.readNext();
+            if(tokenizer.tokenType == TokenType::Equal)
+            {
+                tokenizer.readNext();
+                expression(true);
+                convertValueToRValue();
+                Value newValue = valueStack.back();
+                valueStack.pop_back();
+                if(newValue.type->toNonConstant()->toNonVolatile() != symbol->type->toNonConstant()->toNonVolatile())
+                    throw ParseError("types don't match for =");
+                std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(symbol->addressNode, newValue.node);
+                currentBasicBlock->instructions.push_back(storeNode);
+            }
+            else
+            {
+                std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(initialValue, nullptr);
+                currentBasicBlock->instructions.push_back(node);
+                std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(symbol->addressNode, node);
+                currentBasicBlock->instructions.push_back(storeNode);
+            }
             if(tokenizer.tokenType == terminatingToken)
             {
                 tokenizer.readNext();

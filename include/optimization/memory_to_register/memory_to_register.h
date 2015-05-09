@@ -122,6 +122,10 @@ public:
             {
                 continue;
             }
+            if(variableType->isVolatile)
+            {
+                continue;
+            }
             const std::unordered_set<std::shared_ptr<SSABasicBlock>> &useSet = variableToFirstReferenceIsUseSetMap[variable];
             const std::unordered_map<std::shared_ptr<SSABasicBlock>, std::shared_ptr<SSANode>> &lastStoreMap = variableToLastStoreMapMap[variable];
             std::unordered_set<std::shared_ptr<SSABasicBlock>> liveInSet = useSet;
