@@ -143,6 +143,10 @@ public:
     {
         os << "    add %" << node->dest->name << ", %" << node->rhs->name << "\n";
     }
+    virtual void visitX86AsmNodeMul(std::shared_ptr<X86AsmNodeMul> node) override
+    {
+        os << "    imul %" << node->dest->name << ", %" << node->rhs->name << "\n";
+    }
     virtual void visitX86AsmNodeTypeCast(std::shared_ptr<X86AsmNodeTypeCast> node) override
     {
         if(node->destType->toNonConstant()->toNonVolatile() == node->sourceType->toNonConstant()->toNonVolatile())

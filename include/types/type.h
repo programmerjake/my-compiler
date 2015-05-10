@@ -118,9 +118,40 @@ public:
         hasTypeProperties = true;
         return typeProperties;
     }
-    virtual std::shared_ptr<TypeNode> getArithCombinedType(std::shared_ptr<TypeNode> rt)
+    struct BinaryOperatorTypeRetval final
     {
-        return nullptr;
+        std::shared_ptr<TypeNode> lhsType;
+        std::shared_ptr<TypeNode> rhsType;
+        std::shared_ptr<TypeNode> resultType;
+        BinaryOperatorTypeRetval()
+        {
+        }
+        BinaryOperatorTypeRetval(std::shared_ptr<TypeNode> lhsType, std::shared_ptr<TypeNode> rhsType, std::shared_ptr<TypeNode> resultType)
+            : lhsType(lhsType), rhsType(rhsType), resultType(resultType)
+        {
+        }
+        explicit operator bool() const
+        {
+            if(resultType)
+                return true;
+            return false;
+        }
+        bool operator !() const
+        {
+            return !resultType;
+        }
+    };
+    virtual BinaryOperatorTypeRetval getArithCombinedType(std::shared_ptr<TypeNode> rt)
+    {
+        return BinaryOperatorTypeRetval();
+    }
+    virtual BinaryOperatorTypeRetval getCompareType(std::shared_ptr<TypeNode> rt)
+    {
+        return BinaryOperatorTypeRetval();
+    }
+    virtual bool canTypeCastTo(std::shared_ptr<TypeNode> destType, bool isImplicit) const
+    {
+        return false;
     }
 };
 
@@ -186,9 +217,20 @@ public:
     {
         return node->dereference();
     }
-    virtual std::shared_ptr<TypeNode> getArithCombinedType(std::shared_ptr<TypeNode> rt) override
+    virtual BinaryOperatorTypeRetval getArithCombinedType(std::shared_ptr<TypeNode> rt) override
     {
         return node->getArithCombinedType(rt);
+    }
+    virtual BinaryOperatorTypeRetval getCompareType(std::shared_ptr<TypeNode> rt) override
+    {
+        return node->getCompareType(rt);
+    }
+    virtual bool canTypeCastTo(std::shared_ptr<TypeNode> destType, bool isImplicit) const override
+    {
+        std::shared_ptr<TypeConstant> typeConstant = std::dynamic_pointer_cast<TypeConstant>(destType);
+        if(!isImplicit && !typeConstant)
+            return false;
+        return node->canTypeCastTo(destType->toNonConstant(), isImplicit);
     }
 };
 
@@ -241,9 +283,20 @@ public:
     {
         return node->dereference();
     }
-    virtual std::shared_ptr<TypeNode> getArithCombinedType(std::shared_ptr<TypeNode> rt) override
+    virtual BinaryOperatorTypeRetval getArithCombinedType(std::shared_ptr<TypeNode> rt) override
     {
         return node->getArithCombinedType(rt);
+    }
+    virtual BinaryOperatorTypeRetval getCompareType(std::shared_ptr<TypeNode> rt) override
+    {
+        return node->getCompareType(rt);
+    }
+    virtual bool canTypeCastTo(std::shared_ptr<TypeNode> destType, bool isImplicit) const override
+    {
+        std::shared_ptr<TypeVolatile> typeVolatile = std::dynamic_pointer_cast<TypeVolatile>(destType);
+        if(!isImplicit && !typeVolatile)
+            return false;
+        return node->canTypeCastTo(destType->toNonVolatile(), isImplicit);
     }
 };
 

@@ -786,6 +786,7 @@ class X86AsmNodeStoreLocal;
 class X86AsmNodeCompare;
 class X86AsmNodeTypeCast;
 class X86AsmNodeAdd;
+class X86AsmNodeMul;
 
 class X86AsmNodeVisitor
 {
@@ -801,6 +802,7 @@ public:
     virtual void visitX86AsmNodeCompare(std::shared_ptr<X86AsmNodeCompare> node) = 0;
     virtual void visitX86AsmNodeTypeCast(std::shared_ptr<X86AsmNodeTypeCast> node) = 0;
     virtual void visitX86AsmNodeAdd(std::shared_ptr<X86AsmNodeAdd> node) = 0;
+    virtual void visitX86AsmNodeMul(std::shared_ptr<X86AsmNodeMul> node) = 0;
 };
 
 class X86AsmNodeJump final : public X86AsmControlTransfer
@@ -1288,6 +1290,36 @@ public:
     virtual void visit(X86AsmNodeVisitor &visitor) override
     {
         visitor.visitX86AsmNodeAdd(std::static_pointer_cast<X86AsmNodeAdd>(shared_from_this()));
+    }
+    virtual void replaceRegister(std::shared_ptr<X86AsmRegister> originalRegister, std::shared_ptr<X86AsmRegister> newRegister) override
+    {
+        if(dest == originalRegister)
+            dest = newRegister;
+        if(rhs == originalRegister)
+            rhs = newRegister;
+    }
+};
+
+class X86AsmNodeMul final : public X86AsmNode
+{
+public:
+    std::shared_ptr<X86AsmRegister> dest;
+    std::shared_ptr<X86AsmRegister> rhs;
+    explicit X86AsmNodeMul(std::shared_ptr<X86AsmRegister> dest, std::shared_ptr<X86AsmRegister> rhs)
+        : X86AsmNode(dest->context, dest->backend), dest(dest), rhs(rhs)
+    {
+    }
+    virtual std::unordered_set<std::shared_ptr<X86AsmRegister>> inputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86AsmRegister>>{dest, rhs};
+    }
+    virtual std::unordered_set<std::shared_ptr<X86AsmRegister>> outputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86AsmRegister>>{dest};
+    }
+    virtual void visit(X86AsmNodeVisitor &visitor) override
+    {
+        visitor.visitX86AsmNodeMul(std::static_pointer_cast<X86AsmNodeMul>(shared_from_this()));
     }
     virtual void replaceRegister(std::shared_ptr<X86AsmRegister> originalRegister, std::shared_ptr<X86AsmRegister> newRegister) override
     {

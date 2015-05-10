@@ -213,6 +213,10 @@ public:
         {
             isUnsigned = true;
         }
+        else if(std::shared_ptr<TypeInteger> typeInteger = std::dynamic_pointer_cast<TypeInteger>(node->operandsType->toNonConstant()->toNonVolatile()))
+        {
+            isUnsigned = typeInteger->isUnsigned;
+        }
         else
         {
             throw std::runtime_error("compare not implemented for type");
@@ -258,6 +262,30 @@ public:
     }
     virtual void visitRTLAdd(std::shared_ptr<RTLAdd> node) override
     {
+        if(dynamic_cast<const TypePointer *>(node->lhsType.get()))
+        {
+            std::shared_ptr<X86AsmNode> newNode = std::make_shared<X86AsmNodeLoadConstant>(getOrMakeRegister(node->destRegister, node->destType), std::make_shared<ValueInteger>(node->context, false, IntegerWidth::IntNativeSize, node->lhsType->dereference()->getTypeProperties().size));
+            currentBlock->instructions.push_back(newNode);
+            newNode = std::make_shared<X86AsmNodeMul>(getOrMakeRegister(node->destRegister, node->destType),
+                                                                                            getOrMakeRegister(node->rhsRegister, node->rhsType));
+            currentBlock->instructions.push_back(newNode);
+            newNode = std::make_shared<X86AsmNodeAdd>(getOrMakeRegister(node->destRegister, node->destType),
+                                                                                            getOrMakeRegister(node->lhsRegister, node->lhsType));
+            currentBlock->instructions.push_back(newNode);
+            return;
+        }
+        if(dynamic_cast<const TypePointer *>(node->rhsType.get()))
+        {
+            std::shared_ptr<X86AsmNode> newNode = std::make_shared<X86AsmNodeLoadConstant>(getOrMakeRegister(node->destRegister, node->destType), std::make_shared<ValueInteger>(node->context, false, IntegerWidth::IntNativeSize, node->rhsType->dereference()->getTypeProperties().size));
+            currentBlock->instructions.push_back(newNode);
+            newNode = std::make_shared<X86AsmNodeMul>(getOrMakeRegister(node->destRegister, node->destType),
+                                                                                            getOrMakeRegister(node->lhsRegister, node->lhsType));
+            currentBlock->instructions.push_back(newNode);
+            newNode = std::make_shared<X86AsmNodeAdd>(getOrMakeRegister(node->destRegister, node->destType),
+                                                                                            getOrMakeRegister(node->rhsRegister, node->rhsType));
+            currentBlock->instructions.push_back(newNode);
+            return;
+        }
         std::shared_ptr<X86AsmNode> newNode = std::make_shared<X86AsmNodeMove>(getOrMakeRegister(node->destRegister, node->destType),
                                                                                         getOrMakeRegister(node->lhsRegister, node->lhsType));
         currentBlock->instructions.push_back(newNode);

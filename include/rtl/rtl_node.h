@@ -375,6 +375,8 @@ public:
 private:
     std::shared_ptr<ValueNode> evaluateForConstantsHelper(std::shared_ptr<ValueNode> lhsValue, std::shared_ptr<ValueNode> rhsValue)
     {
+        if(lhsValue == nullptr || rhsValue == nullptr)
+            return nullptr;
         ValueNode::CompareResult compareResult = lhsValue->compareValue(*rhsValue);
         if(compareResult == ValueNode::CompareResult::Unknown)
             return nullptr;
@@ -447,12 +449,12 @@ public:
     {
         std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> retval;
         auto iter = values.find(sourceRegister);
-        if(iter == values.end())
-            return retval;
-        std::shared_ptr<ValueNode> value = std::get<1>(*iter);
-        value = value->typeCast(destType);
-        if(value)
-            retval.emplace_back(destRegister, value);
+        std::shared_ptr<ValueNode> value;
+        if(iter != values.end())
+            value = std::get<1>(*iter);
+        if(value != nullptr)
+            value = value->typeCast(destType);
+        retval.emplace_back(destRegister, value);
         return std::move(retval);
     }
     virtual void visit(RTLNodeVisitor &visitor) override
@@ -489,16 +491,17 @@ public:
     {
         std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> retval;
         auto iter = values.find(lhsRegister);
-        if(iter == values.end())
-            return retval;
-        std::shared_ptr<ValueNode> lhsValue = std::get<1>(*iter);
+        std::shared_ptr<ValueNode> lhsValue;
+        if(iter != values.end())
+            lhsValue = std::get<1>(*iter);
         iter = values.find(rhsRegister);
-        if(iter == values.end())
-            return retval;
         std::shared_ptr<ValueNode> rhsValue = std::get<1>(*iter);
-        std::shared_ptr<ValueNode> value = lhsValue->add(rhsValue);
-        if(value)
-            retval.emplace_back(destRegister, value);
+        if(iter != values.end())
+            rhsValue = std::get<1>(*iter);
+        std::shared_ptr<ValueNode> value = nullptr;
+        if(lhsValue && rhsValue)
+            value = lhsValue->add(rhsValue);
+        retval.emplace_back(destRegister, value);
         return std::move(retval);
     }
     virtual void visit(RTLNodeVisitor &visitor) override

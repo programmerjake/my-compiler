@@ -257,6 +257,8 @@ private:
             tokenizer.readNext();
             expression();
             convertValueToRValue();
+            if(!valueStack.back().type->canTypeCastTo(newType, false))
+                throw ParseError("invalid cast");
             std::shared_ptr<SSANode> node = std::make_shared<SSATypeCast>(valueStack.back().node, newType, nullptr);
             currentBasicBlock->instructions.push_back(node);
             valueStack.back() = Value(node, newType, Value::Kind::RValue);
@@ -293,7 +295,7 @@ private:
             case Value::Kind::RValue:
                 throw ParseError("can't take address of a rvalue");
             }
-            valueStack.back() = Value(valueStack.back().node, TypePointer::make(valueStack.back().type), Value::Kind::RValue);
+            valueStack.back() = Value(valueStack.back().node, TypePointer::make(valueStack.back().type)->toConstant(), Value::Kind::RValue);
             return;
         }
         topLevelExpression();
@@ -311,12 +313,26 @@ private:
             prefixOperator();
             convertValueToRValue();
             Value rhs = valueStack.back();
-            std::shared_ptr<TypeNode> type = lhs.type->getArithCombinedType(rhs.type);
+            TypeNode::BinaryOperatorTypeRetval type = lhs.type->getArithCombinedType(rhs.type);
             if(!type)
                 throw ParseError("types not compatible");
-            std::shared_ptr<SSANode> node = std::make_shared<SSAAdd>(lhs.node, rhs.node, nullptr, type);
+            if(lhs.type != type.lhsType)
+            {
+                std::shared_ptr<SSANode> node = std::make_shared<SSATypeCast>(lhs.node, type.lhsType, nullptr);
+                currentBasicBlock->instructions.push_back(node);
+                lhs.node = node;
+                lhs.type = type.lhsType;
+            }
+            if(rhs.type != type.rhsType)
+            {
+                std::shared_ptr<SSANode> node = std::make_shared<SSATypeCast>(rhs.node, type.rhsType, nullptr);
+                currentBasicBlock->instructions.push_back(node);
+                rhs.node = node;
+                rhs.type = type.rhsType;
+            }
+            std::shared_ptr<SSANode> node = std::make_shared<SSAAdd>(lhs.node, rhs.node, nullptr, type.resultType);
             currentBasicBlock->instructions.push_back(node);
-            valueStack.back() = Value(node, type, Value::Kind::RValue);
+            valueStack.back() = Value(node, type.resultType, Value::Kind::RValue);
         }
     }
 
@@ -349,15 +365,32 @@ private:
         }
         tokenizer.readNext();
         convertValueToRValue();
-        std::shared_ptr<SSANode> lhs = valueStack.back().node;
+        Value lhs = valueStack.back();
         valueStack.pop_back();
         addExpression();
         convertValueToRValue();
-        std::shared_ptr<SSANode> rhs = valueStack.back().node;
+        Value rhs = valueStack.back();
         valueStack.pop_back();
-        std::shared_ptr<SSANode> retval = std::make_shared<SSACompare>(lhs, compareOperator, rhs, nullptr);
+        TypeNode::BinaryOperatorTypeRetval type = lhs.type->getCompareType(rhs.type);
+        if(!type)
+            throw ParseError("types not compatible");
+        if(lhs.type != type.lhsType)
+        {
+            std::shared_ptr<SSANode> node = std::make_shared<SSATypeCast>(lhs.node, type.lhsType, nullptr);
+            currentBasicBlock->instructions.push_back(node);
+            lhs.node = node;
+            lhs.type = type.lhsType;
+        }
+        if(rhs.type != type.rhsType)
+        {
+            std::shared_ptr<SSANode> node = std::make_shared<SSATypeCast>(rhs.node, type.rhsType, nullptr);
+            currentBasicBlock->instructions.push_back(node);
+            rhs.node = node;
+            rhs.type = type.rhsType;
+        }
+        std::shared_ptr<SSANode> retval = std::make_shared<SSACompare>(lhs.node, compareOperator, rhs.node, nullptr);
         currentBasicBlock->instructions.push_back(retval);
-        valueStack.push_back(Value(retval, retval->type, Value::Kind::RValue));
+        valueStack.push_back(Value(retval, type.resultType, Value::Kind::RValue));
         return;
     }
 
@@ -374,13 +407,21 @@ private:
             case Value::Kind::RValue:
                 throw ParseError("can't assign to rvalue");
             }
+            if(variable.type->isConstant)
+                throw ParseError("can't assign to constant");
             tokenizer.readNext();
             assignmentExpression();
             convertValueToRValue();
             Value newValue = valueStack.back();
             valueStack.pop_back();
-            if(newValue.type->toNonConstant()->toNonVolatile() != variable.type->toNonVolatile())
-                throw ParseError("types don't match for =");
+            if(!newValue.type->canTypeCastTo(variable.type->toVolatile()->toConstant(), true))
+                throw ParseError("invalid types for =");
+            if(newValue.type->toNonConstant()->toNonVolatile() != variable.type->toNonConstant()->toNonVolatile())
+            {
+                newValue.node = std::make_shared<SSATypeCast>(newValue.node, variable.type->toConstant(), nullptr);
+                currentBasicBlock->instructions.push_back(newValue.node);
+                newValue.type = variable.type->toConstant();
+            }
             std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(variable.node, newValue.node);
             currentBasicBlock->instructions.push_back(storeNode);
         }
@@ -580,8 +621,14 @@ private:
                 convertValueToRValue();
                 Value newValue = valueStack.back();
                 valueStack.pop_back();
+                if(!newValue.type->canTypeCastTo(symbol->type->toVolatile()->toConstant(), true))
+                    throw ParseError("invalid types for =");
                 if(newValue.type->toNonConstant()->toNonVolatile() != symbol->type->toNonConstant()->toNonVolatile())
-                    throw ParseError("types don't match for =");
+                {
+                    newValue.node = std::make_shared<SSATypeCast>(newValue.node, symbol->type->toConstant(), nullptr);
+                    currentBasicBlock->instructions.push_back(newValue.node);
+                    newValue.type = symbol->type->toConstant();
+                }
                 std::shared_ptr<SSANode> storeNode = std::make_shared<SSAStore>(symbol->addressNode, newValue.node);
                 currentBasicBlock->instructions.push_back(storeNode);
             }

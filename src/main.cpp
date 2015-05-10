@@ -36,17 +36,11 @@
 std::string getSourceCode()
 {
     return
-        "for(boolean x = true, y = true, z = true; z; z = y, y = x, x = false)\n"
+        "uint16 *a = cast(uint16 *, 0x12345678);\n"
+        "uint32 *b = cast(uint32 *, 0x87654321);\n"
+        "for(int i = 0; i < 10; i = i + 1, a = a + 1, b = b + 1)\n"
         "{\n"
-        "    volatile int v = cast(int, 0);\n"
-        "    volatile int v2 = cast(int, 1);\n"
-        "    volatile int *a = &v;\n"
-        "    if(x)\n"
-        "        a = &v2;\n"
-        "    *a = cast(int, 1) + cast(int, 2);\n"
-        "}\n"
-        "for(int i = cast(int, 0); i < cast(int, 10); i = i + 1)\n"
-        "{\n"
+        "    *b = *a;\n"
         "}\n"
         "";
 }
@@ -173,16 +167,15 @@ int main(int argc, char **argv)
                 return usageAndError("can't open input file");
             }
         }
-        fn = parse(context.get(), *pis, pis != &std::cin);
+        fn = parse(context.get(), *pis, pis == &is);
+        if(pis == &std::cin || pis == &is)
+            std::cout << std::endl << std::endl;
     }
     catch(ParseError &e)
     {
         std::cerr << "\nParse Error : " << e.what() << std::endl;
         return 1;
     }
-    std::cout << std::endl << std::endl;
-    DumpVisitor(std::cout).visitSSAFunction(fn);
-    std::cout << std::endl << std::endl;
     fn->verify();
     for(std::size_t i = 0; i < 3; i++)
     {

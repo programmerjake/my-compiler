@@ -48,6 +48,8 @@ public:
         if(iter == values.end())
             return nullptr;
         std::shared_ptr<ValueNode> value = std::get<1>(*iter);
+        if(value == nullptr)
+            return nullptr;
         return value->typeCast(type);
     }
     virtual void visit(SSANodeVisitor &visitor) override
@@ -79,7 +81,7 @@ public:
     virtual std::shared_ptr<ValueNode> evaluateForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const override
     {
         auto iter = values.find(arg.lock());
-        if(iter == values.end())
+        if(iter == values.end() || std::get<1>(*iter) == nullptr)
             return nullptr;
         return evaluateForConstantsHelper(std::get<1>(*iter));
     }
@@ -137,35 +139,9 @@ public:
 protected:
     virtual std::shared_ptr<ValueNode> evaluateForConstantsHelper(std::shared_ptr<ValueNode> lhsValue, std::shared_ptr<ValueNode> rhsValue) const override
     {
-        std::shared_ptr<ValueInteger> lhsInteger = std::dynamic_pointer_cast<ValueInteger>(lhsValue);
-        std::shared_ptr<ValueInteger> rhsInteger = std::dynamic_pointer_cast<ValueInteger>(rhsValue);
-        std::shared_ptr<ValueVariablePointer> lhsVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(lhsValue);
-        std::shared_ptr<ValueVariablePointer> rhsVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(rhsValue);
-        if(lhsInteger && rhsInteger)
-        {
-            if(lhsInteger->isUnsigned)
-                return std::make_shared<ValueInteger>(context, true, lhsInteger->width, lhsInteger->getUnsignedValue() + rhsInteger->getUnsignedValue());
-            return std::make_shared<ValueInteger>(context, false, lhsInteger->width, lhsInteger->getSignedValue() + rhsInteger->getSignedValue());
-        }
-        if(lhsInteger && rhsVariablePointer)
-        {
-            VariableLocation location = rhsVariablePointer->location;
-            if(lhsInteger->isUnsigned)
-                location.offset += lhsInteger->getUnsignedValue();
-            else
-                location.offset += lhsInteger->getSignedValue();
-            return std::make_shared<ValueVariablePointer>(context, location, rhsVariablePointer->type->dereference());
-        }
-        if(rhsInteger && lhsVariablePointer)
-        {
-            VariableLocation location = lhsVariablePointer->location;
-            if(rhsInteger->isUnsigned)
-                location.offset += rhsInteger->getUnsignedValue();
-            else
-                location.offset += rhsInteger->getSignedValue();
-            return std::make_shared<ValueVariablePointer>(context, location, lhsVariablePointer->type->dereference());
-        }
-        return nullptr;
+        if(lhsValue == nullptr || rhsValue == nullptr)
+            return nullptr;
+        return lhsValue->add(rhsValue);
     }
 };
 

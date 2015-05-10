@@ -117,7 +117,7 @@ void DumpVisitor::visitSSATypeCast(std::shared_ptr<SSATypeCast> node)
     os << "(destType=";
     node->type->visit(*this);
     os << ",sourceType=";
-    node->type->visit(*this);
+    node->arg.lock()->type->visit(*this);
     os << ",arg=" << getSSANodeDisplayValue(node->arg.lock()) << ")";
 }
 void DumpVisitor::visitTypeConstant(std::shared_ptr<TypeConstant> node)

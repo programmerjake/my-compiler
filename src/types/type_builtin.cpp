@@ -24,6 +24,22 @@ std::shared_ptr<ValueNode> TypeBoolean::makeDefaultValue()
     return std::make_shared<ValueBoolean>(context, false);
 }
 
+bool TypeBoolean::canTypeCastTo(std::shared_ptr<TypeNode> destType, bool isImplicit) const
+{
+    if(dynamic_cast<const TypeBoolean *>(destType->toNonConstant()->toNonVolatile().get()))
+        return true;
+    if(dynamic_cast<const TypeInteger *>(destType->toNonConstant()->toNonVolatile().get()))
+        return !isImplicit;
+    return false;
+}
+
+TypeNode::BinaryOperatorTypeRetval TypeBoolean::getCompareType(std::shared_ptr<TypeNode> rt)
+{
+    if(dynamic_cast<const TypeBoolean *>(rt->toNonConstant()->toNonVolatile().get()))
+        return BinaryOperatorTypeRetval(shared_from_this(), rt, TypeBoolean::make(context));
+    return BinaryOperatorTypeRetval();
+}
+
 std::shared_ptr<ValueNode> TypePointer::makeDefaultValue()
 {
     return std::make_shared<ValueNullPointer>(context);
@@ -34,17 +50,73 @@ std::shared_ptr<ValueNode> TypeInteger::makeDefaultValue()
     return std::make_shared<ValueInteger>(context, isUnsigned, width, 0);
 }
 
-std::shared_ptr<TypeNode> TypePointer::getArithCombinedType(std::shared_ptr<TypeNode> rt)
+TypeNode::BinaryOperatorTypeRetval TypePointer::getArithCombinedType(std::shared_ptr<TypeNode> rt)
 {
     if(dynamic_cast<const TypeInteger *>(rt->toNonConstant()->toNonVolatile().get()))
-        return shared_from_this();
-    return nullptr;
+        return BinaryOperatorTypeRetval(shared_from_this(), TypeInteger::make(context, false, IntegerWidth::IntNativeSize), shared_from_this());
+    return BinaryOperatorTypeRetval();
 }
 
-std::shared_ptr<TypeNode> TypeInteger::getArithCombinedType(std::shared_ptr<TypeNode> rt)
+TypeNode::BinaryOperatorTypeRetval TypePointer::getCompareType(std::shared_ptr<TypeNode> rt)
 {
     if(dynamic_cast<const TypePointer *>(rt->toNonConstant()->toNonVolatile().get()))
-        return rt;
+        return BinaryOperatorTypeRetval(shared_from_this(), rt, TypeBoolean::make(context));
+    return BinaryOperatorTypeRetval();
+}
+
+bool TypePointer::canTypeCastTo(std::shared_ptr<TypeNode> destType, bool isImplicit) const
+{
+    if(dynamic_cast<const TypeBoolean *>(destType->toNonConstant()->toNonVolatile().get()))
+        return true;
+    if(dynamic_cast<const TypeInteger *>(destType->toNonConstant()->toNonVolatile().get()))
+        return !isImplicit;
+    if(TypePointer *typePointer = dynamic_cast<TypePointer *>(destType->toNonConstant()->toNonVolatile().get()))
+    {
+        if(typePointer == this)
+            return true;
+        if(!isImplicit)
+            return true;
+        if(node->isConstant && !typePointer->node->isConstant)
+            return false;
+        if(node->isVolatile && !typePointer->node->isVolatile)
+            return false;
+        TypeNode *fromTypeDereferenced = node.get();
+        TypeNode *toTypeDereferenced = typePointer->node.get();
+        bool needConstant = (fromTypeDereferenced->isConstant != toTypeDereferenced->isConstant);
+        while(fromTypeDereferenced != toTypeDereferenced)
+        {
+            if(needConstant && !toTypeDereferenced->isConstant)
+                return false;
+            TypePointer *fromTypeDereferencedPointer = dynamic_cast<TypePointer *>(fromTypeDereferenced->toNonConstant()->toNonVolatile().get());
+            TypePointer *toTypeDereferencedPointer = dynamic_cast<TypePointer *>(toTypeDereferenced->toNonConstant()->toNonVolatile().get());
+            if(!fromTypeDereferencedPointer || !toTypeDereferencedPointer)
+            {
+                if(fromTypeDereferenced->isConstant && !toTypeDereferenced->isConstant)
+                    return false;
+                if(fromTypeDereferenced->isVolatile && !toTypeDereferenced->isVolatile)
+                    return false;
+                return fromTypeDereferenced->toNonConstant()->toNonVolatile() == toTypeDereferenced->toNonConstant()->toNonVolatile();
+            }
+            fromTypeDereferenced = fromTypeDereferencedPointer->node.get();
+            toTypeDereferenced = toTypeDereferencedPointer->node.get();
+            if(fromTypeDereferenced->isConstant && !toTypeDereferenced->isConstant)
+                return false;
+            if(fromTypeDereferenced->isVolatile && !toTypeDereferenced->isVolatile)
+                return false;
+            if(!needConstant)
+                needConstant = (fromTypeDereferenced->isConstant != toTypeDereferenced->isConstant);
+        }
+        if(needConstant && !toTypeDereferenced->isConstant)
+            return false;
+        return true;
+    }
+    return false;
+}
+
+TypeNode::BinaryOperatorTypeRetval TypeInteger::getArithCombinedType(std::shared_ptr<TypeNode> rt)
+{
+    if(dynamic_cast<const TypePointer *>(rt->toNonConstant()->toNonVolatile().get()))
+        return BinaryOperatorTypeRetval(make(context, false, Width::IntNativeSize), rt, rt);
     if(std::shared_ptr<TypeInteger> rtInteger = std::dynamic_pointer_cast<TypeInteger>(rt))
     {
         bool resultIsUnsigned = false;
@@ -129,8 +201,32 @@ std::shared_ptr<TypeNode> TypeInteger::getArithCombinedType(std::shared_ptr<Type
             }
             break;
         }
-        return make(context, resultIsUnsigned, resultWidth);
+        std::shared_ptr<TypeNode> resultType = make(context, resultIsUnsigned, resultWidth);
+        return BinaryOperatorTypeRetval(resultType, resultType, resultType);
     }
-    return nullptr;
+    return BinaryOperatorTypeRetval();
 }
+
+TypeNode::BinaryOperatorTypeRetval TypeInteger::getCompareType(std::shared_ptr<TypeNode> rt)
+{
+    if(dynamic_cast<const TypeInteger *>(rt->toNonConstant()->toNonVolatile().get()))
+    {
+        BinaryOperatorTypeRetval retval = getArithCombinedType(rt);
+        retval.resultType = TypeBoolean::make(context);
+        return retval;
+    }
+    return BinaryOperatorTypeRetval();
+}
+
+bool TypeInteger::canTypeCastTo(std::shared_ptr<TypeNode> destType, bool isImplicit) const
+{
+    if(dynamic_cast<const TypeBoolean *>(destType->toNonConstant()->toNonVolatile().get()))
+        return true;
+    if(dynamic_cast<const TypeInteger *>(destType->toNonConstant()->toNonVolatile().get()))
+        return true;
+    if(dynamic_cast<const TypePointer *>(destType->toNonConstant()->toNonVolatile().get()))
+        return !isImplicit;
+    return false;
+}
+
 

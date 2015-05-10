@@ -47,11 +47,11 @@ public:
     virtual std::shared_ptr<ValueNode> evaluateForConstants(const std::unordered_map<std::shared_ptr<SSANode>, std::shared_ptr<ValueNode>> &values) const override
     {
         auto iter = values.find(lhs.lock());
-        if(iter == values.end())
+        if(iter == values.end() || std::get<1>(*iter) == nullptr)
             return nullptr;
         std::shared_ptr<ValueNode> lhsValue = std::get<1>(*iter);
         iter = values.find(rhs.lock());
-        if(iter == values.end())
+        if(iter == values.end() || std::get<1>(*iter) == nullptr)
             return nullptr;
         std::shared_ptr<ValueNode> rhsValue = std::get<1>(*iter);
         ValueNode::CompareResult compareResult = lhsValue->compareValue(*rhsValue);

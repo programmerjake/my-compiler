@@ -76,6 +76,8 @@ public:
         visitor.visitTypeBoolean(std::static_pointer_cast<TypeBoolean>(shared_from_this()));
     }
     virtual std::shared_ptr<ValueNode> makeDefaultValue() override;
+    virtual BinaryOperatorTypeRetval getCompareType(std::shared_ptr<TypeNode> rt) override;
+    virtual bool canTypeCastTo(std::shared_ptr<TypeNode> destType, bool isImplicit) const override;
 };
 
 class TypePointer final : public TypeNode
@@ -116,7 +118,9 @@ public:
         return static_cast<std::size_t>(0x24395729) + node->getHash();
     }
     virtual std::shared_ptr<ValueNode> makeDefaultValue() override;
-    virtual std::shared_ptr<TypeNode> getArithCombinedType(std::shared_ptr<TypeNode> rt) override;
+    virtual BinaryOperatorTypeRetval getArithCombinedType(std::shared_ptr<TypeNode> rt) override;
+    virtual BinaryOperatorTypeRetval getCompareType(std::shared_ptr<TypeNode> rt) override;
+    virtual bool canTypeCastTo(std::shared_ptr<TypeNode> destType, bool isImplicit) const override;
 };
 
 class TypeInteger final : public TypeNode
@@ -156,7 +160,9 @@ public:
         return retval;
     }
     virtual std::shared_ptr<ValueNode> makeDefaultValue() override;
-    virtual std::shared_ptr<TypeNode> getArithCombinedType(std::shared_ptr<TypeNode> rt) override;
+    virtual BinaryOperatorTypeRetval getArithCombinedType(std::shared_ptr<TypeNode> rt) override;
+    virtual BinaryOperatorTypeRetval getCompareType(std::shared_ptr<TypeNode> rt) override;
+    virtual bool canTypeCastTo(std::shared_ptr<TypeNode> destType, bool isImplicit) const override;
 };
 
 #endif // TYPE_BUILTIN_H_INCLUDED
