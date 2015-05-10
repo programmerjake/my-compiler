@@ -27,5 +27,10 @@
 #include "ssa/ssa_phi.h"
 #include "ssa/ssa_compare.h"
 #include "ssa/ssa_alloc.h"
+#if 1
+#warning finish ssa_arith_logic.h
+#else
+#include "ssa/ssa_arith_logic.h"
+#endif
 
 #endif // SSA_NODES_H_INCLUDED

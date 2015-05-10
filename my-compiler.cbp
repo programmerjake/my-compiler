@@ -59,6 +59,7 @@
 		<Unit filename="include/rtl/rtl_node.h" />
 		<Unit filename="include/rtl/rtl_nodes.h" />
 		<Unit filename="include/ssa/ssa_alloc.h" />
+		<Unit filename="include/ssa/ssa_arith_logic.h" />
 		<Unit filename="include/ssa/ssa_compare.h" />
 		<Unit filename="include/ssa/ssa_const.h" />
 		<Unit filename="include/ssa/ssa_control_transfer.h" />
