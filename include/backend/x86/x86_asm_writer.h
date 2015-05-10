@@ -149,6 +149,13 @@ public:
         }
         else if(std::shared_ptr<ValueNullPointer> valueNullPointer = std::dynamic_pointer_cast<ValueNullPointer>(node->value))
             os << "    mov %" << node->dest->name << ", 0\n";
+        else if(std::shared_ptr<ValueInteger> valueInteger = std::dynamic_pointer_cast<ValueInteger>(node->value))
+        {
+            if(valueInteger->isUnsigned)
+                os << "    mov %" << node->dest->name << ", " << valueInteger->getUnsignedValue() << "\n";
+            else
+                os << "    mov %" << node->dest->name << ", " << valueInteger->getSignedValue() << "\n";
+        }
         else
             throw NotImplementedException("type not implemented");
     }

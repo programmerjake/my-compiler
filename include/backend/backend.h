@@ -24,6 +24,7 @@
 #include <list>
 #include <stdexcept>
 #include <cstdint>
+#include "types/integer_width.h"
 
 class RTLFunction;
 
@@ -67,6 +68,7 @@ public:
     virtual ~Backend() = default;
     virtual void outputAsAssembly(std::ostream &os, std::list<std::shared_ptr<RTLFunction>> functions) const = 0;
     virtual TypeProperties getTypeProperties(std::shared_ptr<TypeNode> type) const = 0;
+    virtual IntegerWidth getNativeIntegerWidth() const = 0;
 };
 
 class NotImplementedException : public std::runtime_error

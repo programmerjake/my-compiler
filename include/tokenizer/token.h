@@ -216,6 +216,84 @@ public:
 #undef TOKEN_DEF_SPECIAL
             return;
         }
+        if(std::isdigit(peek()) || peek() == '.')
+        {
+            for(;;)
+            {
+                tokenType = TokenType::IntValue;
+                while(std::isdigit(peek()))
+                {
+                    tokenValue += static_cast<char>(get());
+                }
+                if(tokenValue == "0" && std::toupper(peek()) == 'X')
+                {
+                    tokenValue += static_cast<char>(get());
+                    bool gotDigit = false;
+                    while(std::isxdigit(peek()))
+                    {
+                        tokenValue += static_cast<char>(get());
+                        gotDigit = true;
+                    }
+                    if(peek() == '.')
+                    {
+                        tokenType = TokenType::FloatValue;
+                        tokenValue += static_cast<char>(get());
+                        while(std::isxdigit(peek()))
+                        {
+                            tokenValue += static_cast<char>(get());
+                            gotDigit = true;
+                        }
+                    }
+                    if(!gotDigit)
+                        throw ParseError("missing hex digit");
+                    if(std::toupper(peek()) == 'P')
+                    {
+                        tokenType = TokenType::FloatValue;
+                        tokenValue += static_cast<char>(get());
+                        if(peek() == '+' || peek() == '-')
+                        {
+                            tokenValue += static_cast<char>(get());
+                        }
+                        if(!std::isdigit(peek()))
+                            throw ParseError("expected digit");
+                        while(std::isdigit(peek()))
+                        {
+                            tokenValue += static_cast<char>(get());
+                        }
+                    }
+                    return;
+                }
+                if(peek() == '.')
+                {
+                    tokenType = TokenType::FloatValue;
+                    tokenValue += static_cast<char>(get());
+                    if(!std::isdigit(peek()) && tokenValue == ".")
+                    {
+                        break;
+                    }
+                    while(std::isdigit(peek()))
+                    {
+                        tokenValue += static_cast<char>(get());
+                    }
+                }
+                if(std::toupper(peek()) == 'E')
+                {
+                    tokenType = TokenType::FloatValue;
+                    tokenValue += static_cast<char>(get());
+                    if(peek() == '+' || peek() == '-')
+                    {
+                        tokenValue += static_cast<char>(get());
+                    }
+                    if(!std::isdigit(peek()))
+                        throw ParseError("expected digit");
+                    while(std::isdigit(peek()))
+                    {
+                        tokenValue += static_cast<char>(get());
+                    }
+                }
+                return;
+            }
+        }
         struct SymbolStruct final
         {
             std::string symbol;

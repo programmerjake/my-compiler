@@ -30,6 +30,7 @@ class TypeVolatile;
 class TypeVoid;
 class TypeBoolean;
 class TypePointer;
+class TypeInteger;
 class ValueNode;
 
 class TypeVisitor
@@ -41,6 +42,7 @@ public:
     virtual void visitTypeVoid(std::shared_ptr<TypeVoid> node) = 0;
     virtual void visitTypeBoolean(std::shared_ptr<TypeBoolean> node) = 0;
     virtual void visitTypePointer(std::shared_ptr<TypePointer> node) = 0;
+    virtual void visitTypeInteger(std::shared_ptr<TypeInteger> node) = 0;
 };
 
 #include "context.h"

@@ -20,6 +20,7 @@
 #define X86_BACKEND_H_INCLUDED
 
 #include "backend/backend.h"
+#include <cassert>
 
 class BackendX86 final : public Backend
 {
@@ -43,6 +44,18 @@ public:
     }
     virtual void outputAsAssembly(std::ostream &os, std::list<std::shared_ptr<RTLFunction>> functions) const override;
     virtual TypeProperties getTypeProperties(std::shared_ptr<TypeNode> type) const override;
+    virtual IntegerWidth getNativeIntegerWidth() const override
+    {
+        switch(architecture)
+        {
+        case Architecture::X86_32:
+            return IntegerWidth::Int32;
+        case Architecture::X86_64:
+            return IntegerWidth::Int64;
+        }
+        assert(false);
+        return IntegerWidth::Int32;
+    }
 };
 
 #endif // X86_BACKEND_H_INCLUDED

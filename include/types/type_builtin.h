@@ -118,4 +118,43 @@ public:
     virtual std::shared_ptr<ValueNode> makeDefaultValue() override;
 };
 
+class TypeInteger final : public TypeNode
+{
+    friend class CompilerContext;
+public:
+    const bool isUnsigned;
+    typedef IntegerWidth Width;
+    const Width width;
+private:
+    TypeInteger(CompilerContext *context, bool isUnsigned, Width width)
+        : TypeNode(context, false, false), isUnsigned(isUnsigned), width(width)
+    {
+    }
+public:
+    static std::shared_ptr<TypeNode> make(CompilerContext *context, bool isUnsigned, Width width)
+    {
+        return context->constructTypeNode<TypeInteger>(isUnsigned, width);
+    }
+    virtual void visit(TypeVisitor &visitor) override
+    {
+        visitor.visitTypeInteger(std::static_pointer_cast<TypeInteger>(shared_from_this()));
+    }
+    virtual bool operator ==(const TypeNode &rt) const override
+    {
+        const TypeInteger *prt = dynamic_cast<const TypeInteger *>(&rt);
+        if(prt != nullptr)
+        {
+            return isUnsigned == prt->isUnsigned && width == prt->width;
+        }
+        return false;
+    }
+    virtual std::size_t getHash() const override
+    {
+        std::size_t retval = static_cast<std::size_t>(width);
+        retval = retval * 2 + (isUnsigned ? 1 : 0);
+        return retval;
+    }
+    virtual std::shared_ptr<ValueNode> makeDefaultValue() override;
+};
+
 #endif // TYPE_BUILTIN_H_INCLUDED

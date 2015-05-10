@@ -38,12 +38,12 @@ std::string getSourceCode()
     return
         "for(boolean x = true, y = true, z = true; z; z = y, y = x, x = false)\n"
         "{\n"
-        "    volatile boolean v = x;\n"
-        "    volatile boolean v2 = y;\n"
-        "    volatile boolean *a = &v;\n"
+        "    volatile int v;\n"
+        "    volatile int v2;\n"
+        "    volatile int *a = &v;\n"
         "    if(x)\n"
         "        a = &v2;\n"
-        "    *a = false;\n"
+        "    *a = v2;\n"
         "}\n";
 }
 

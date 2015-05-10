@@ -43,6 +43,7 @@
 		<Unit filename="include/backend/x86/x86_asm_writer.h" />
 		<Unit filename="include/backend/x86/x86_backend.h" />
 		<Unit filename="include/backend/x86/x86_construct_liveness_info.h" />
+		<Unit filename="include/backend/x86/x86_dead_code.h" />
 		<Unit filename="include/backend/x86/x86_register_allocator.h" />
 		<Unit filename="include/backend/x86/x86_rtl_to_asm.h" />
 		<Unit filename="include/construct_basic_block_graph.h" />
@@ -68,6 +69,7 @@
 		<Unit filename="include/ssa/ssa_visitor.h" />
 		<Unit filename="include/tokenizer/token.h" />
 		<Unit filename="include/tokenizer/token_names.h" />
+		<Unit filename="include/types/integer_width.h" />
 		<Unit filename="include/types/type.h" />
 		<Unit filename="include/types/type_builtin.h" />
 		<Unit filename="include/types/types.h" />
@@ -82,6 +84,7 @@
 		<Unit filename="src/main.cpp" />
 		<Unit filename="src/parser/parser.cpp" />
 		<Unit filename="src/types/type_builtin.cpp" />
+		<Unit filename="src/values/values.cpp" />
 		<Extensions>
 			<envvars />
 			<code_completion />

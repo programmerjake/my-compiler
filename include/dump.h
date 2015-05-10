@@ -134,10 +134,12 @@ public:
     virtual void visitTypeVoid(std::shared_ptr<TypeVoid> node) override;
     virtual void visitTypeBoolean(std::shared_ptr<TypeBoolean> node) override;
     virtual void visitTypePointer(std::shared_ptr<TypePointer> node) override;
+    virtual void visitTypeInteger(std::shared_ptr<TypeInteger> node) override;
     virtual void visitValueBoolean(std::shared_ptr<ValueBoolean> node) override;
     virtual void visitValueUnknown(std::shared_ptr<ValueUnknown> node) override;
     virtual void visitValueVariablePointer(std::shared_ptr<ValueVariablePointer> node) override;
     virtual void visitValueNullPointer(std::shared_ptr<ValueNullPointer> node) override;
+    virtual void visitValueInteger(std::shared_ptr<ValueInteger> node) override;
     virtual void visitRTLLoadConstant(std::shared_ptr<RTLLoadConstant> node) override;
     virtual void visitRTLMove(std::shared_ptr<RTLMove> node) override;
     virtual void visitRTLUnconditionalJump(std::shared_ptr<RTLUnconditionalJump> node) override;

@@ -16,20 +16,16 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#include "types/type_builtin.h"
-#include "values/values.h"
+#ifndef INTEGER_WIDTH_H_INCLUDED
+#define INTEGER_WIDTH_H_INCLUDED
 
-std::shared_ptr<ValueNode> TypeBoolean::makeDefaultValue()
+enum class IntegerWidth
 {
-    return std::make_shared<ValueBoolean>(context, false);
-}
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    IntNativeSize
+};
 
-std::shared_ptr<ValueNode> TypePointer::makeDefaultValue()
-{
-    return std::make_shared<ValueNullPointer>(context);
-}
-
-std::shared_ptr<ValueNode> TypeInteger::makeDefaultValue()
-{
-    return std::make_shared<ValueInteger>(context, isUnsigned, width, 0);
-}
+#endif // INTEGER_WIDTH_H_INCLUDED

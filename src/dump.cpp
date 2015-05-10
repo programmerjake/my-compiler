@@ -131,6 +131,31 @@ void DumpVisitor::visitTypePointer(std::shared_ptr<TypePointer> node)
     node->dereference()->visit(*this);
     os << ")";
 }
+void DumpVisitor::visitTypeInteger(std::shared_ptr<TypeInteger> node)
+{
+    os << "TypeInteger(kind=";
+    if(node->isUnsigned)
+        os << "u";
+    switch(node->width)
+    {
+    case IntegerWidth::Int8:
+        os << "int8";
+        break;
+    case IntegerWidth::Int16:
+        os << "int16";
+        break;
+    case IntegerWidth::Int32:
+        os << "int32";
+        break;
+    case IntegerWidth::Int64:
+        os << "int64";
+        break;
+    case IntegerWidth::IntNativeSize:
+        os << "int";
+        break;
+    }
+    os << ")";
+}
 void DumpVisitor::visitValueBoolean(std::shared_ptr<ValueBoolean> node)
 {
     os << "ValueBoolean(value=";
@@ -157,6 +182,64 @@ void DumpVisitor::visitValueVariablePointer(std::shared_ptr<ValueVariablePointer
     else
         os << "<none>";
     os << ",offset=" << location.offset << "))";
+}
+void DumpVisitor::visitValueInteger(std::shared_ptr<ValueInteger> node)
+{
+    os << "ValueInteger(kind=";
+    if(node->isUnsigned)
+        os << "u";
+    switch(node->width)
+    {
+    case IntegerWidth::Int8:
+        os << "int8";
+        break;
+    case IntegerWidth::Int16:
+        os << "int16";
+        break;
+    case IntegerWidth::Int32:
+        os << "int32";
+        break;
+    case IntegerWidth::Int64:
+        os << "int64";
+        break;
+    case IntegerWidth::IntNativeSize:
+        os << "int";
+        break;
+    }
+    os << ",value=";
+    IntegerWidth calcWidth = node->width;
+    if(calcWidth == IntegerWidth::IntNativeSize)
+        calcWidth = node->context->backend->getNativeIntegerWidth();
+    switch(calcWidth)
+    {
+    case IntegerWidth::Int8:
+        if(node->isUnsigned)
+            os << static_cast<unsigned>(node->getAsUInt8());
+        else
+            os << static_cast<int>(node->getAsInt8());
+        break;
+    case IntegerWidth::Int16:
+        if(node->isUnsigned)
+            os << static_cast<unsigned>(node->getAsUInt16());
+        else
+            os << static_cast<int>(node->getAsInt16());
+        break;
+    case IntegerWidth::Int32:
+        if(node->isUnsigned)
+            os << node->getAsUInt32();
+        else
+            os << node->getAsInt32();
+        break;
+    case IntegerWidth::Int64:
+        if(node->isUnsigned)
+            os << node->getAsUInt64();
+        else
+            os << node->getAsInt64();
+        break;
+    case IntegerWidth::IntNativeSize:
+        break;
+    }
+    os << ")";
 }
 void DumpVisitor::visitRTLLoadConstant(std::shared_ptr<RTLLoadConstant> node)
 {

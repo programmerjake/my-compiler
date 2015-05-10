@@ -601,6 +601,44 @@ public:
             break;
         }
     }
+    virtual void visitTypeInteger(std::shared_ptr<TypeInteger> node) override
+    {
+        isGood = isGood && isEmpty;
+        isEmpty = false;
+        switch(node->width)
+        {
+        case IntegerWidth::Int8:
+            sizeInBytes += 1;
+            break;
+        case IntegerWidth::Int16:
+            sizeInBytes += 2;
+            break;
+        case IntegerWidth::Int32:
+            sizeInBytes += 4;
+            break;
+        case IntegerWidth::Int64:
+            switch(backend->architecture)
+            {
+            case BackendX86::X86_32:
+                throw std::runtime_error("64-bit integers not implemented on x86_32");
+            case BackendX86::X86_64:
+                sizeInBytes += 8;
+                break;
+            }
+            break;
+        case IntegerWidth::IntNativeSize:
+            switch(backend->architecture)
+            {
+            case BackendX86::X86_32:
+                sizeInBytes += 4;
+                break;
+            case BackendX86::X86_64:
+                sizeInBytes += 8;
+                break;
+            }
+            break;
+        }
+    }
     static X86AsmRegister::PhysicalRegisterKindMask run(std::shared_ptr<TypeNode> type, const BackendX86 *backend)
     {
         return X86TypeToPhysicalRegisterKindMask(backend).visit(type).getMask();

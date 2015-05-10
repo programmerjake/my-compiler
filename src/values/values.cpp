@@ -16,20 +16,15 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-#include "types/type_builtin.h"
 #include "values/values.h"
 
-std::shared_ptr<ValueNode> TypeBoolean::makeDefaultValue()
+ValueNode::CompareResult ValueNullPointer::compareValue(const ValueNode &rt) const
 {
-    return std::make_shared<ValueBoolean>(context, false);
-}
-
-std::shared_ptr<ValueNode> TypePointer::makeDefaultValue()
-{
-    return std::make_shared<ValueNullPointer>(context);
-}
-
-std::shared_ptr<ValueNode> TypeInteger::makeDefaultValue()
-{
-    return std::make_shared<ValueInteger>(context, isUnsigned, width, 0);
+    const ValueNullPointer *nullPointer = dynamic_cast<const ValueNullPointer *>(&rt);
+    if(nullPointer)
+        return CompareResult::Equal;
+    const ValueVariablePointer *variablePointer = dynamic_cast<const ValueVariablePointer *>(&rt);
+    if(variablePointer != nullptr)
+        return CompareResult::Less;
+    return CompareResult::Unknown;
 }

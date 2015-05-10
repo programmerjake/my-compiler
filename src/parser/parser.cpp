@@ -25,6 +25,9 @@
 #include <deque>
 #include "construct_basic_block_graph.h"
 #include <cassert>
+#include <sstream>
+#include <cstdlib>
+#include <cerrno>
 
 namespace
 {
@@ -163,6 +166,85 @@ private:
             valueStack.push_back(Value(node, node->type, Value::Kind::RValue));
             return;
         }
+        case TokenType::IntValue:
+        {
+            std::string str = tokenizer.tokenValue;
+            int base = 10; // set base manually to avoid octal
+            if(str.substr(0, 2) == "0x" || str.substr(0, 2) == "0X")
+                base = 16;
+            int oldErrno = errno;
+            try
+            {
+                errno = 0;
+                unsigned long long vll = std::strtoull(tokenizer.tokenValue.c_str(), nullptr, base);
+                std::uint64_t vu64 = static_cast<std::uint64_t>(vll);
+                std::uint64_t v = vu64;
+                if(errno == ERANGE || vu64 != vll)
+                {
+                    throw ParseError("number too big");
+                }
+                bool isUnsigned = false;
+                IntegerWidth width = IntegerWidth::Int64;
+                std::int64_t vs64 = static_cast<std::int64_t>(vll);
+                std::int32_t vs32 = static_cast<std::int32_t>(vs64);
+                std::int16_t vs16 = static_cast<std::int16_t>(vs64);
+                std::int8_t vs8 = static_cast<std::int8_t>(vs64);
+                std::uint32_t vu32 = static_cast<std::uint32_t>(vu64);
+                std::uint16_t vu16 = static_cast<std::uint16_t>(vu64);
+                std::uint8_t vu8 = static_cast<std::uint8_t>(vu64);
+                if(vs8 >= 0 && vs8 == vs64)
+                {
+                    isUnsigned = false;
+                    width = IntegerWidth::Int8;
+                }
+                else if(vu8 == vu64)
+                {
+                    isUnsigned = true;
+                    width = IntegerWidth::Int8;
+                }
+                else if(vs16 >= 0 && vs16 == vs64)
+                {
+                    isUnsigned = false;
+                    width = IntegerWidth::Int16;
+                }
+                else if(vu16 == vu64)
+                {
+                    isUnsigned = true;
+                    width = IntegerWidth::Int16;
+                }
+                else if(vs32 >= 0 && vs32 == vs64)
+                {
+                    isUnsigned = false;
+                    width = IntegerWidth::Int32;
+                }
+                else if(vu32 == vu64)
+                {
+                    isUnsigned = true;
+                    width = IntegerWidth::Int32;
+                }
+                else if(vs64 >= 0)
+                {
+                    isUnsigned = false;
+                    width = IntegerWidth::Int64;
+                }
+                else
+                {
+                    isUnsigned = true;
+                    width = IntegerWidth::Int64;
+                }
+                std::shared_ptr<SSANode> node = std::make_shared<SSAConstant>(std::make_shared<ValueInteger>(context, isUnsigned, width, v), nullptr);
+                currentBasicBlock->instructions.push_back(node);
+                tokenizer.readNext();
+                valueStack.push_back(Value(node, TypeInteger::make(context, isUnsigned, width), Value::Kind::RValue));
+            }
+            catch(...)
+            {
+                errno = oldErrno;
+                throw;
+            }
+            errno = oldErrno;
+            break;
+        }
         default:
             throw ParseError("expected (, id, true, false, or null");
         }
@@ -287,6 +369,56 @@ private:
         {
             tokenizer.readNext();
             return TypeVoid::make(context);
+        }
+        case TokenType::UInt8:
+        {
+            tokenizer.readNext();
+            return TypeInteger::make(context, true, IntegerWidth::Int8);
+        }
+        case TokenType::Int8:
+        {
+            tokenizer.readNext();
+            return TypeInteger::make(context, false, IntegerWidth::Int8);
+        }
+        case TokenType::UInt16:
+        {
+            tokenizer.readNext();
+            return TypeInteger::make(context, true, IntegerWidth::Int16);
+        }
+        case TokenType::Int16:
+        {
+            tokenizer.readNext();
+            return TypeInteger::make(context, false, IntegerWidth::Int16);
+        }
+        case TokenType::UInt32:
+        {
+            tokenizer.readNext();
+            return TypeInteger::make(context, true, IntegerWidth::Int32);
+        }
+        case TokenType::Int32:
+        {
+            tokenizer.readNext();
+            return TypeInteger::make(context, false, IntegerWidth::Int32);
+        }
+        case TokenType::UInt64:
+        {
+            tokenizer.readNext();
+            return TypeInteger::make(context, true, IntegerWidth::Int64);
+        }
+        case TokenType::Int64:
+        {
+            tokenizer.readNext();
+            return TypeInteger::make(context, false, IntegerWidth::Int64);
+        }
+        case TokenType::UInt:
+        {
+            tokenizer.readNext();
+            return TypeInteger::make(context, true, IntegerWidth::IntNativeSize);
+        }
+        case TokenType::Int:
+        {
+            tokenizer.readNext();
+            return TypeInteger::make(context, false, IntegerWidth::IntNativeSize);
         }
         case TokenType::Boolean:
         {

@@ -21,11 +21,17 @@
 #include "backend/x86/x86_rtl_to_asm.h"
 #include "backend/x86/x86_asm_writer.h"
 #include "backend/x86/x86_register_allocator.h"
+#include "backend/x86/x86_dead_code.h"
 
 void BackendX86::outputAsAssembly(std::ostream &os, std::list<std::shared_ptr<RTLFunction>> functionsIn) const
 {
     std::list<std::shared_ptr<X86AsmFunction>> functions = X86ConvertRTLToAsm::run(functionsIn, this);
     functionsIn.clear();
+    X86DeadCodeElimination dce(this);
+    for(std::shared_ptr<X86AsmFunction> function : functions)
+    {
+        dce.visitX86AsmFunction(function);
+    }
     X86RegisterAllocator ra(this);
     for(std::shared_ptr<X86AsmFunction> function : functions)
     {
@@ -83,6 +89,49 @@ TypeProperties BackendX86::getTypeProperties(std::shared_ptr<TypeNode> type) con
                 retval.alignment = 8;
                 retval.size = 8;
                 return;
+            }
+            assert(false);
+        }
+        virtual void visitTypeInteger(std::shared_ptr<TypeInteger> node) override
+        {
+            switch(node->width)
+            {
+            case IntegerWidth::Int8:
+                retval.alignment = 1;
+                retval.size = 1;
+                return;
+            case IntegerWidth::Int16:
+                retval.alignment = 2;
+                retval.size = 2;
+                return;
+            case IntegerWidth::Int32:
+                retval.alignment = 4;
+                retval.size = 4;
+                return;
+            case IntegerWidth::Int64:
+                switch(architecture)
+                {
+                case Architecture::X86_32:
+                    throw std::runtime_error("64-bit integers not implemented on x86_32");
+                case Architecture::X86_64:
+                    retval.alignment = 8;
+                    retval.size = 8;
+                    return;
+                }
+                break;
+            case IntegerWidth::IntNativeSize:
+                switch(architecture)
+                {
+                case Architecture::X86_32:
+                    retval.alignment = 4;
+                    retval.size = 4;
+                    return;
+                case Architecture::X86_64:
+                    retval.alignment = 8;
+                    retval.size = 8;
+                    return;
+                }
+                break;
             }
             assert(false);
         }

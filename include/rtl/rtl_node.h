@@ -371,105 +371,37 @@ public:
 private:
     std::shared_ptr<ValueNode> evaluateForConstantsHelper(std::shared_ptr<ValueNode> lhsValue, std::shared_ptr<ValueNode> rhsValue)
     {
-        std::shared_ptr<ValueBoolean> lhsValueBoolean = std::dynamic_pointer_cast<ValueBoolean>(lhsValue);
-        std::shared_ptr<ValueBoolean> rhsValueBoolean = std::dynamic_pointer_cast<ValueBoolean>(rhsValue);
-        if(lhsValueBoolean && rhsValueBoolean)
+        ValueNode::CompareResult compareResult = lhsValue->compareValue(*rhsValue);
+        if(compareResult == ValueNode::CompareResult::Unknown)
+            return nullptr;
+        int v = 0;
+        if(compareResult == ValueNode::CompareResult::Less)
+            v = -1;
+        if(compareResult == ValueNode::CompareResult::Greater)
+            v = 1;
+        bool result = false;
+        switch(compareOperator)
         {
-            switch(compareOperator)
-            {
-            case CompareOperator::E:
-                return std::make_shared<ValueBoolean>(context, lhsValueBoolean->value == rhsValueBoolean->value);
-            case CompareOperator::G:
-                return std::make_shared<ValueBoolean>(context, lhsValueBoolean->value && !rhsValueBoolean->value);
-            case CompareOperator::GE:
-                return std::make_shared<ValueBoolean>(context, lhsValueBoolean->value || !rhsValueBoolean->value);
-            case CompareOperator::L:
-                return std::make_shared<ValueBoolean>(context, !lhsValueBoolean->value && rhsValueBoolean->value);
-            case CompareOperator::LE:
-                return std::make_shared<ValueBoolean>(context, !lhsValueBoolean->value || rhsValueBoolean->value);
-            default: // NE
-                return std::make_shared<ValueBoolean>(context, lhsValueBoolean->value != rhsValueBoolean->value);
-            }
+        case CompareOperator::E:
+            result = (v == 0);
+            break;
+        case CompareOperator::G:
+            result = (v > 0);
+            break;
+        case CompareOperator::GE:
+            result = (v >= 0);
+            break;
+        case CompareOperator::L:
+            result = (v < 0);
+            break;
+        case CompareOperator::LE:
+            result = (v <= 0);
+            break;
+        default: // NE
+            result = (v != 0);
+            break;
         }
-        std::shared_ptr<ValueNullPointer> lhsValueNullPointer = std::dynamic_pointer_cast<ValueNullPointer>(lhsValue);
-        std::shared_ptr<ValueNullPointer> rhsValueNullPointer = std::dynamic_pointer_cast<ValueNullPointer>(rhsValue);
-        if(lhsValueNullPointer && rhsValueNullPointer)
-        {
-            switch(compareOperator)
-            {
-            case CompareOperator::E:
-                return std::make_shared<ValueBoolean>(context, true);
-            case CompareOperator::G:
-                return std::make_shared<ValueBoolean>(context, false);
-            case CompareOperator::GE:
-                return std::make_shared<ValueBoolean>(context, true);
-            case CompareOperator::L:
-                return std::make_shared<ValueBoolean>(context, false);
-            case CompareOperator::LE:
-                return std::make_shared<ValueBoolean>(context, true);
-            default: // NE
-                return std::make_shared<ValueBoolean>(context, false);
-            }
-        }
-        std::shared_ptr<ValueVariablePointer> lhsValueVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(lhsValue);
-        std::shared_ptr<ValueVariablePointer> rhsValueVariablePointer = std::dynamic_pointer_cast<ValueVariablePointer>(rhsValue);
-        if(lhsValueVariablePointer && rhsValueNullPointer)
-        {
-            switch(compareOperator)
-            {
-            case CompareOperator::E:
-                return std::make_shared<ValueBoolean>(context, false);
-            case CompareOperator::G:
-                return std::make_shared<ValueBoolean>(context, true);
-            case CompareOperator::GE:
-                return std::make_shared<ValueBoolean>(context, true);
-            case CompareOperator::L:
-                return std::make_shared<ValueBoolean>(context, false);
-            case CompareOperator::LE:
-                return std::make_shared<ValueBoolean>(context, false);
-            default: // NE
-                return std::make_shared<ValueBoolean>(context, false);
-            }
-        }
-        if(lhsValueNullPointer && rhsValueVariablePointer)
-        {
-            switch(compareOperator)
-            {
-            case CompareOperator::E:
-                return std::make_shared<ValueBoolean>(context, false);
-            case CompareOperator::G:
-                return std::make_shared<ValueBoolean>(context, false);
-            case CompareOperator::GE:
-                return std::make_shared<ValueBoolean>(context, false);
-            case CompareOperator::L:
-                return std::make_shared<ValueBoolean>(context, true);
-            case CompareOperator::LE:
-                return std::make_shared<ValueBoolean>(context, true);
-            default: // NE
-                return std::make_shared<ValueBoolean>(context, false);
-            }
-        }
-        if(lhsValueVariablePointer && rhsValueVariablePointer)
-        {
-            if(lhsValueVariablePointer->location.variable != rhsValueVariablePointer->location.variable)
-                return nullptr;
-            switch(compareOperator)
-            {
-            case CompareOperator::E:
-                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset == rhsValueVariablePointer->location.offset);
-            case CompareOperator::G:
-                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset > rhsValueVariablePointer->location.offset);
-            case CompareOperator::GE:
-                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset >= rhsValueVariablePointer->location.offset);
-            case CompareOperator::L:
-                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset < rhsValueVariablePointer->location.offset);
-            case CompareOperator::LE:
-                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset <= rhsValueVariablePointer->location.offset);
-            default: // NE
-                return std::make_shared<ValueBoolean>(context, lhsValueVariablePointer->location.offset != rhsValueVariablePointer->location.offset);
-            }
-        }
-        return nullptr;
+        return std::make_shared<ValueBoolean>(context, result);
     }
 public:
     virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> evaluateForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) override
