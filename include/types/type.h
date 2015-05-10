@@ -118,6 +118,10 @@ public:
         hasTypeProperties = true;
         return typeProperties;
     }
+    virtual std::shared_ptr<TypeNode> getArithCombinedType(std::shared_ptr<TypeNode> rt)
+    {
+        return nullptr;
+    }
 };
 
 class TypeBuiltIn : public TypeNode
@@ -182,6 +186,10 @@ public:
     {
         return node->dereference();
     }
+    virtual std::shared_ptr<TypeNode> getArithCombinedType(std::shared_ptr<TypeNode> rt) override
+    {
+        return node->getArithCombinedType(rt);
+    }
 };
 
 class TypeVolatile final : public TypeNode
@@ -232,6 +240,10 @@ public:
     virtual std::shared_ptr<TypeNode> dereference() override
     {
         return node->dereference();
+    }
+    virtual std::shared_ptr<TypeNode> getArithCombinedType(std::shared_ptr<TypeNode> rt) override
+    {
+        return node->getArithCombinedType(rt);
     }
 };
 

@@ -70,6 +70,18 @@ public:
     {
         return CompareResult::Unknown;
     }
+    virtual std::shared_ptr<ValueNode> typeCast(std::shared_ptr<TypeNode> destType)
+    {
+        return nullptr;
+    }
+    virtual std::shared_ptr<ValueNode> add(std::shared_ptr<ValueNode> r)
+    {
+        return nullptr;
+    }
+    virtual std::shared_ptr<ValueNode> subtract(std::shared_ptr<ValueNode> r)
+    {
+        return nullptr;
+    }
 };
 
 class ValueBoolean final : public ValueNode
@@ -108,6 +120,7 @@ public:
         }
         return CompareResult::Unknown;
     }
+    virtual std::shared_ptr<ValueNode> typeCast(std::shared_ptr<TypeNode> destType) override;
 };
 
 class ValueUnknown final : public ValueNode
@@ -149,6 +162,7 @@ public:
         return true;
     }
     virtual CompareResult compareValue(const ValueNode &rt) const override;
+    virtual std::shared_ptr<ValueNode> typeCast(std::shared_ptr<TypeNode> destType) override;
 };
 
 class ValueVariablePointer final : public ValueNode
@@ -189,6 +203,9 @@ public:
         }
         return CompareResult::Unknown;
     }
+    virtual std::shared_ptr<ValueNode> typeCast(std::shared_ptr<TypeNode> destType) override;
+    virtual std::shared_ptr<ValueNode> add(std::shared_ptr<ValueNode> r) override;
+    virtual std::shared_ptr<ValueNode> subtract(std::shared_ptr<ValueNode> r) override;
 };
 
 class ValueInteger final : public ValueNode
@@ -347,6 +364,9 @@ public:
         }
         return CompareResult::Unknown;
     }
+    virtual std::shared_ptr<ValueNode> typeCast(std::shared_ptr<TypeNode> destType) override;
+    virtual std::shared_ptr<ValueNode> add(std::shared_ptr<ValueNode> r) override;
+    virtual std::shared_ptr<ValueNode> subtract(std::shared_ptr<ValueNode> r) override;
 };
 
 #endif // VALUE_H_INCLUDED

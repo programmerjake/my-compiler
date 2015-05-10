@@ -105,6 +105,21 @@ void DumpVisitor::visitSSACompare(std::shared_ptr<SSACompare> node)
     }
     os << ",rhs=" << getSSANodeDisplayValue(node->rhs.lock()) << ")";
 }
+void DumpVisitor::visitSSAAdd(std::shared_ptr<SSAAdd> node)
+{
+    dumpInstructionName("SSAAdd", node);
+    os << "(lhs=" << getSSANodeDisplayValue(node->lhs.lock()) << ",rhs=";
+    os << getSSANodeDisplayValue(node->rhs.lock()) << ")";
+}
+void DumpVisitor::visitSSATypeCast(std::shared_ptr<SSATypeCast> node)
+{
+    dumpInstructionName("SSATypeCast", node);
+    os << "(destType=";
+    node->type->visit(*this);
+    os << ",sourceType=";
+    node->type->visit(*this);
+    os << ",arg=" << getSSANodeDisplayValue(node->arg.lock()) << ")";
+}
 void DumpVisitor::visitTypeConstant(std::shared_ptr<TypeConstant> node)
 {
     os << "TypeConstant(";
@@ -257,6 +272,18 @@ void DumpVisitor::visitRTLMove(std::shared_ptr<RTLMove> node)
     dumpRTLRegister(node->sourceRegister);
     os << ")";
 }
+void DumpVisitor::visitRTLTypeCast(std::shared_ptr<RTLTypeCast> node)
+{
+    os << "RTLTypeCast(destRegister=";
+    dumpRTLRegister(node->destRegister);
+    os << ",destType=";
+    node->destType->visit(*this);
+    os << ",sourceRegister=";
+    dumpRTLRegister(node->sourceRegister);
+    os << ",sourceType=";
+    node->sourceType->visit(*this);
+    os << ")";
+}
 void DumpVisitor::visitRTLLoad(std::shared_ptr<RTLLoad> node)
 {
     os << "RTLLoad(destRegister=";
@@ -317,6 +344,16 @@ void DumpVisitor::visitRTLCompare(std::shared_ptr<RTLCompare> node)
         os << "'!='";
         break;
     }
+    os << ",rhsRegister=";
+    dumpRTLRegister(node->rhsRegister);
+    os << ")";
+}
+void DumpVisitor::visitRTLAdd(std::shared_ptr<RTLAdd> node)
+{
+    os << "RTLAdd(destRegister=";
+    dumpRTLRegister(node->destRegister);
+    os << ",lhsRegister=";
+    dumpRTLRegister(node->lhsRegister);
     os << ",rhsRegister=";
     dumpRTLRegister(node->rhsRegister);
     os << ")";

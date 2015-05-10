@@ -29,6 +29,8 @@ class SSALoad;
 class SSAStore;
 class SSACompare;
 class SSAAllocA;
+class SSATypeCast;
+class SSAAdd;
 
 class SSANodeVisitor
 {
@@ -43,6 +45,8 @@ public:
     virtual void visitSSAStore(std::shared_ptr<SSAStore> node) = 0;
     virtual void visitSSACompare(std::shared_ptr<SSACompare> node) = 0;
     virtual void visitSSAAllocA(std::shared_ptr<SSAAllocA> node) = 0;
+    virtual void visitSSATypeCast(std::shared_ptr<SSATypeCast> node) = 0;
+    virtual void visitSSAAdd(std::shared_ptr<SSAAdd> node) = 0;
 };
 
 #endif // SSA_VISITOR_H_INCLUDED

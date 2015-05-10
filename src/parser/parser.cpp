@@ -245,6 +245,26 @@ private:
             errno = oldErrno;
             break;
         }
+        case TokenType::Cast:
+        {
+            tokenizer.readNext();
+            if(tokenizer.tokenType != TokenType::LParen)
+                throw ParseError("expected (");
+            tokenizer.readNext();
+            std::shared_ptr<TypeNode> newType = type();
+            if(tokenizer.tokenType != TokenType::Comma)
+                throw ParseError("expected ,");
+            tokenizer.readNext();
+            expression();
+            convertValueToRValue();
+            std::shared_ptr<SSANode> node = std::make_shared<SSATypeCast>(valueStack.back().node, newType, nullptr);
+            currentBasicBlock->instructions.push_back(node);
+            valueStack.back() = Value(node, newType, Value::Kind::RValue);
+            if(tokenizer.tokenType != TokenType::RParen)
+                throw ParseError("expected )");
+            tokenizer.readNext();
+            break;
+        }
         default:
             throw ParseError("expected (, id, true, false, or null");
         }
@@ -279,9 +299,30 @@ private:
         topLevelExpression();
     }
 
-    void comparisonExpression()
+    void addExpression()
     {
         prefixOperator();
+        while(tokenizer.tokenType == TokenType::Plus)
+        {
+            convertValueToRValue();
+            Value lhs = valueStack.back();
+            valueStack.pop_back();
+            tokenizer.readNext();
+            prefixOperator();
+            convertValueToRValue();
+            Value rhs = valueStack.back();
+            std::shared_ptr<TypeNode> type = lhs.type->getArithCombinedType(rhs.type);
+            if(!type)
+                throw ParseError("types not compatible");
+            std::shared_ptr<SSANode> node = std::make_shared<SSAAdd>(lhs.node, rhs.node, nullptr, type);
+            currentBasicBlock->instructions.push_back(node);
+            valueStack.back() = Value(node, type, Value::Kind::RValue);
+        }
+    }
+
+    void comparisonExpression()
+    {
+        addExpression();
         SSACompare::CompareOperator compareOperator;
         switch(tokenizer.tokenType)
         {
@@ -310,7 +351,7 @@ private:
         convertValueToRValue();
         std::shared_ptr<SSANode> lhs = valueStack.back().node;
         valueStack.pop_back();
-        prefixOperator();
+        addExpression();
         convertValueToRValue();
         std::shared_ptr<SSANode> rhs = valueStack.back().node;
         valueStack.pop_back();
@@ -728,6 +769,7 @@ private:
         case TokenType::LParen:
         case TokenType::Star:
         case TokenType::Ampersand:
+        case TokenType::Cast:
             expression();
             valueStack.pop_back();
             if(tokenizer.tokenType != TokenType::Semicolon)
@@ -738,6 +780,16 @@ private:
         case TokenType::Volatile:
         case TokenType::Boolean:
         case TokenType::Void:
+        case TokenType::Int8:
+        case TokenType::UInt8:
+        case TokenType::Int16:
+        case TokenType::UInt16:
+        case TokenType::Int32:
+        case TokenType::UInt32:
+        case TokenType::Int64:
+        case TokenType::UInt64:
+        case TokenType::Int:
+        case TokenType::UInt:
             declaration(terminatingToken);
             break;
         default:
@@ -755,6 +807,7 @@ private:
         case TokenType::LParen:
         case TokenType::Star:
         case TokenType::Ampersand:
+        case TokenType::Cast:
             expression();
             valueStack.pop_back();
             if(tokenizer.tokenType != TokenType::Semicolon)
@@ -803,12 +856,23 @@ private:
             case TokenType::Do:
             case TokenType::Star:
             case TokenType::Ampersand:
+            case TokenType::Cast:
                 statement();
                 break;
             case TokenType::Constant:
             case TokenType::Volatile:
             case TokenType::Boolean:
             case TokenType::Void:
+            case TokenType::Int8:
+            case TokenType::UInt8:
+            case TokenType::Int16:
+            case TokenType::UInt16:
+            case TokenType::Int32:
+            case TokenType::UInt32:
+            case TokenType::Int64:
+            case TokenType::UInt64:
+            case TokenType::Int:
+            case TokenType::UInt:
                 declaration();
                 break;
             default:

@@ -129,6 +129,8 @@ public:
     virtual void visitSSAStore(std::shared_ptr<SSAStore> node) override;
     virtual void visitSSACompare(std::shared_ptr<SSACompare> node) override;
     virtual void visitSSAAllocA(std::shared_ptr<SSAAllocA> node) override;
+    virtual void visitSSATypeCast(std::shared_ptr<SSATypeCast> node) override;
+    virtual void visitSSAAdd(std::shared_ptr<SSAAdd> node) override;
     virtual void visitTypeConstant(std::shared_ptr<TypeConstant> node) override;
     virtual void visitTypeVolatile(std::shared_ptr<TypeVolatile> node) override;
     virtual void visitTypeVoid(std::shared_ptr<TypeVoid> node) override;
@@ -147,6 +149,8 @@ public:
     virtual void visitRTLLoad(std::shared_ptr<RTLLoad> node) override;
     virtual void visitRTLStore(std::shared_ptr<RTLStore> node) override;
     virtual void visitRTLCompare(std::shared_ptr<RTLCompare> node) override;
+    virtual void visitRTLTypeCast(std::shared_ptr<RTLTypeCast> node) override;
+    virtual void visitRTLAdd(std::shared_ptr<RTLAdd> node) override;
     void visitSSANode(std::shared_ptr<SSANode> node)
     {
         node->visit(*this);

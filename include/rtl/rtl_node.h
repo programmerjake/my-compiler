@@ -111,6 +111,8 @@ class RTLStore;
 class RTLUnconditionalJump;
 class RTLConditionalJump;
 class RTLCompare;
+class RTLTypeCast;
+class RTLAdd;
 
 class RTLNodeVisitor
 {
@@ -122,6 +124,8 @@ public:
     virtual void visitRTLStore(std::shared_ptr<RTLStore> node) = 0;
     virtual void visitRTLConditionalJump(std::shared_ptr<RTLConditionalJump> node) = 0;
     virtual void visitRTLCompare(std::shared_ptr<RTLCompare> node) = 0;
+    virtual void visitRTLTypeCast(std::shared_ptr<RTLTypeCast> node) = 0;
+    virtual void visitRTLAdd(std::shared_ptr<RTLAdd> node) = 0;
 };
 
 class RTLControlTransfer : public RTLNode
@@ -417,6 +421,89 @@ public:
         {
             std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>(destRegister, evaluateForConstantsHelper(lhsValue, rhsValue))
         };
+    }
+};
+
+class RTLTypeCast final : public RTLNode
+{
+public:
+    std::shared_ptr<RTLRegister> destRegister;
+    std::shared_ptr<RTLRegister> sourceRegister;
+    std::shared_ptr<TypeNode> destType;
+    std::shared_ptr<TypeNode> sourceType;
+    RTLTypeCast(std::shared_ptr<RTLRegister> destRegister, std::shared_ptr<TypeNode> destType, std::shared_ptr<RTLRegister> sourceRegister, std::shared_ptr<TypeNode> sourceType)
+        : RTLNode(destRegister->context), destRegister(destRegister), sourceRegister(sourceRegister), destType(destType), sourceType(sourceType)
+    {
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getOutputRegisters() const override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>>{std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>{destRegister, destType}};
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getInputRegisters() const override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>>{std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>{sourceRegister, sourceType}};
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> evaluateForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) override
+    {
+        std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> retval;
+        auto iter = values.find(sourceRegister);
+        if(iter == values.end())
+            return retval;
+        std::shared_ptr<ValueNode> value = std::get<1>(*iter);
+        value = value->typeCast(destType);
+        if(value)
+            retval.emplace_back(destRegister, value);
+        return std::move(retval);
+    }
+    virtual void visit(RTLNodeVisitor &visitor) override
+    {
+        visitor.visitRTLTypeCast(std::static_pointer_cast<RTLTypeCast>(shared_from_this()));
+    }
+};
+
+class RTLAdd final : public RTLNode
+{
+public:
+    std::shared_ptr<RTLRegister> destRegister;
+    std::shared_ptr<RTLRegister> lhsRegister;
+    std::shared_ptr<RTLRegister> rhsRegister;
+    std::shared_ptr<TypeNode> destType;
+    std::shared_ptr<TypeNode> lhsType;
+    std::shared_ptr<TypeNode> rhsType;
+    RTLAdd(std::shared_ptr<RTLRegister> destRegister, std::shared_ptr<RTLRegister> lhsRegister, std::shared_ptr<RTLRegister> rhsRegister, std::shared_ptr<TypeNode> destType, std::shared_ptr<TypeNode> lhsType, std::shared_ptr<TypeNode> rhsType)
+        : RTLNode(destRegister->context), destRegister(destRegister), lhsRegister(lhsRegister), rhsRegister(rhsRegister), destType(destType), lhsType(lhsType), rhsType(rhsType)
+    {
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getOutputRegisters() const override
+    {
+        return std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>>{std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>{destRegister, destType}};
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> getInputRegisters() const override
+    {
+        std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<TypeNode>>> retval;
+        retval.emplace_back(lhsRegister, lhsType);
+        retval.emplace_back(rhsRegister, rhsType);
+        return retval;
+    }
+    virtual std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> evaluateForConstants(const std::unordered_map<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>> &values) override
+    {
+        std::list<std::pair<std::shared_ptr<RTLRegister>, std::shared_ptr<ValueNode>>> retval;
+        auto iter = values.find(lhsRegister);
+        if(iter == values.end())
+            return retval;
+        std::shared_ptr<ValueNode> lhsValue = std::get<1>(*iter);
+        iter = values.find(rhsRegister);
+        if(iter == values.end())
+            return retval;
+        std::shared_ptr<ValueNode> rhsValue = std::get<1>(*iter);
+        std::shared_ptr<ValueNode> value = lhsValue->add(rhsValue);
+        if(value)
+            retval.emplace_back(destRegister, value);
+        return std::move(retval);
+    }
+    virtual void visit(RTLNodeVisitor &visitor) override
+    {
+        visitor.visitRTLAdd(std::static_pointer_cast<RTLAdd>(shared_from_this()));
     }
 };
 

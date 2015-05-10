@@ -202,7 +202,27 @@ public:
 private:
     std::vector<std::shared_ptr<X86AsmRegister>> interferenceSet;
     std::shared_ptr<X86AsmRegister> saveRegister;
+    std::shared_ptr<X86AsmRegister> lower8;
+    std::shared_ptr<X86AsmRegister> lower16;
+    std::shared_ptr<X86AsmRegister> lower32;
+    std::shared_ptr<X86AsmRegister> lower64;
 public:
+    const std::shared_ptr<X86AsmRegister> getLower8() const
+    {
+        return lower8;
+    }
+    const std::shared_ptr<X86AsmRegister> getLower16() const
+    {
+        return lower16;
+    }
+    const std::shared_ptr<X86AsmRegister> getLower32() const
+    {
+        return lower32;
+    }
+    const std::shared_ptr<X86AsmRegister> getLower64() const
+    {
+        return lower64;
+    }
     const std::vector<std::shared_ptr<X86AsmRegister>> &getPhysicalRegisterInterferenceSet() const
     {
         return interferenceSet;
@@ -279,6 +299,17 @@ private:
         r8l->saveRegister = r32;
         r8h->saveRegister = r32;
 
+        r32->lower32 = r32;
+        r32->lower16 = r16;
+        r32->lower8 = r8l;
+
+        r16->lower16 = r16;
+        r16->lower8 = r8l;
+
+        r8h->lower8 = r8h;
+
+        r8l->lower8 = r8l;
+
         r32->interferenceSet.push_back(r16);
         r32->interferenceSet.push_back(r8l);
         r32->interferenceSet.push_back(r8h);
@@ -311,6 +342,20 @@ private:
         r16->saveRegister = r64;
         r8->saveRegister = r64;
 
+        r64->lower64 = r64;
+        r64->lower32 = r32;
+        r64->lower16 = r16;
+        r64->lower8 = r8;
+
+        r32->lower32 = r32;
+        r32->lower16 = r16;
+        r32->lower8 = r8;
+
+        r16->lower16 = r16;
+        r16->lower8 = r8;
+
+        r8->lower8 = r8;
+
         r64->interferenceSet.push_back(r32);
         r64->interferenceSet.push_back(r16);
         r64->interferenceSet.push_back(r8);
@@ -340,6 +385,11 @@ private:
 
         r32->saveRegister = r32;
         r16->saveRegister = r32;
+
+        r32->lower32 = r32;
+        r32->lower16 = r16;
+
+        r16->lower16 = r16;
 
         r32->interferenceSet.push_back(r16);
 
@@ -734,6 +784,8 @@ class X86AsmNodeStore;
 class X86AsmNodeLoadLocal;
 class X86AsmNodeStoreLocal;
 class X86AsmNodeCompare;
+class X86AsmNodeTypeCast;
+class X86AsmNodeAdd;
 
 class X86AsmNodeVisitor
 {
@@ -747,6 +799,8 @@ public:
     virtual void visitX86AsmNodeLoadLocal(std::shared_ptr<X86AsmNodeLoadLocal> node) = 0;
     virtual void visitX86AsmNodeStoreLocal(std::shared_ptr<X86AsmNodeStoreLocal> node) = 0;
     virtual void visitX86AsmNodeCompare(std::shared_ptr<X86AsmNodeCompare> node) = 0;
+    virtual void visitX86AsmNodeTypeCast(std::shared_ptr<X86AsmNodeTypeCast> node) = 0;
+    virtual void visitX86AsmNodeAdd(std::shared_ptr<X86AsmNodeAdd> node) = 0;
 };
 
 class X86AsmNodeJump final : public X86AsmControlTransfer
@@ -996,6 +1050,38 @@ public:
     }
 };
 
+class X86AsmNodeTypeCast final : public X86AsmNode
+{
+public:
+    std::shared_ptr<X86AsmRegister> dest;
+    std::shared_ptr<X86AsmRegister> source;
+    std::shared_ptr<TypeNode> destType;
+    std::shared_ptr<TypeNode> sourceType;
+    explicit X86AsmNodeTypeCast(std::shared_ptr<X86AsmRegister> dest, std::shared_ptr<X86AsmRegister> source, std::shared_ptr<TypeNode> destType, std::shared_ptr<TypeNode> sourceType)
+        : X86AsmNode(dest->context, dest->backend), dest(dest), source(source), destType(destType), sourceType(sourceType)
+    {
+    }
+    virtual std::unordered_set<std::shared_ptr<X86AsmRegister>> inputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86AsmRegister>>{source};
+    }
+    virtual std::unordered_set<std::shared_ptr<X86AsmRegister>> outputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86AsmRegister>>{dest};
+    }
+    virtual void visit(X86AsmNodeVisitor &visitor) override
+    {
+        visitor.visitX86AsmNodeTypeCast(std::static_pointer_cast<X86AsmNodeTypeCast>(shared_from_this()));
+    }
+    virtual void replaceRegister(std::shared_ptr<X86AsmRegister> originalRegister, std::shared_ptr<X86AsmRegister> newRegister) override
+    {
+        if(source == originalRegister)
+            source = newRegister;
+        if(dest == originalRegister)
+            dest = newRegister;
+    }
+};
+
 class X86AsmNodeCompare final : public X86AsmNode
 {
 public:
@@ -1179,6 +1265,36 @@ public:
     {
         if(dest == originalRegister)
             dest = newRegister;
+    }
+};
+
+class X86AsmNodeAdd final : public X86AsmNode
+{
+public:
+    std::shared_ptr<X86AsmRegister> dest;
+    std::shared_ptr<X86AsmRegister> rhs;
+    explicit X86AsmNodeAdd(std::shared_ptr<X86AsmRegister> dest, std::shared_ptr<X86AsmRegister> rhs)
+        : X86AsmNode(dest->context, dest->backend), dest(dest), rhs(rhs)
+    {
+    }
+    virtual std::unordered_set<std::shared_ptr<X86AsmRegister>> inputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86AsmRegister>>{dest, rhs};
+    }
+    virtual std::unordered_set<std::shared_ptr<X86AsmRegister>> outputSet() const override
+    {
+        return std::unordered_set<std::shared_ptr<X86AsmRegister>>{dest};
+    }
+    virtual void visit(X86AsmNodeVisitor &visitor) override
+    {
+        visitor.visitX86AsmNodeAdd(std::static_pointer_cast<X86AsmNodeAdd>(shared_from_this()));
+    }
+    virtual void replaceRegister(std::shared_ptr<X86AsmRegister> originalRegister, std::shared_ptr<X86AsmRegister> newRegister) override
+    {
+        if(dest == originalRegister)
+            dest = newRegister;
+        if(rhs == originalRegister)
+            rhs = newRegister;
     }
 };
 

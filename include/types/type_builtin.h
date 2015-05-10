@@ -116,6 +116,7 @@ public:
         return static_cast<std::size_t>(0x24395729) + node->getHash();
     }
     virtual std::shared_ptr<ValueNode> makeDefaultValue() override;
+    virtual std::shared_ptr<TypeNode> getArithCombinedType(std::shared_ptr<TypeNode> rt) override;
 };
 
 class TypeInteger final : public TypeNode
@@ -155,6 +156,7 @@ public:
         return retval;
     }
     virtual std::shared_ptr<ValueNode> makeDefaultValue() override;
+    virtual std::shared_ptr<TypeNode> getArithCombinedType(std::shared_ptr<TypeNode> rt) override;
 };
 
 #endif // TYPE_BUILTIN_H_INCLUDED

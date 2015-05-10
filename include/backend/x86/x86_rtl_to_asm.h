@@ -159,6 +159,11 @@ public:
         std::shared_ptr<X86AsmNode> newNode = std::make_shared<X86AsmNodeMove>(getOrMakeRegister(node->destRegister, node->type), getOrMakeRegister(node->sourceRegister, node->type));
         currentBlock->instructions.push_back(newNode);
     }
+    virtual void visitRTLTypeCast(std::shared_ptr<RTLTypeCast> node) override
+    {
+        std::shared_ptr<X86AsmNode> newNode = std::make_shared<X86AsmNodeTypeCast>(getOrMakeRegister(node->destRegister, node->destType), getOrMakeRegister(node->sourceRegister, node->sourceType), node->destType, node->sourceType);
+        currentBlock->instructions.push_back(newNode);
+    }
     virtual void visitRTLLoad(std::shared_ptr<RTLLoad> node) override
     {
         VariableLocation vl = registerVariableLocationMap[node->addressRegister];
@@ -249,6 +254,15 @@ public:
                                                                                         getOrMakeRegister(node->lhsRegister, node->operandsType),
                                                                                         getOrMakeRegister(node->rhsRegister, node->operandsType),
                                                                                         cond);
+        currentBlock->instructions.push_back(newNode);
+    }
+    virtual void visitRTLAdd(std::shared_ptr<RTLAdd> node) override
+    {
+        std::shared_ptr<X86AsmNode> newNode = std::make_shared<X86AsmNodeMove>(getOrMakeRegister(node->destRegister, node->destType),
+                                                                                        getOrMakeRegister(node->lhsRegister, node->lhsType));
+        currentBlock->instructions.push_back(newNode);
+        newNode = std::make_shared<X86AsmNodeAdd>(getOrMakeRegister(node->destRegister, node->destType),
+                                                                                        getOrMakeRegister(node->rhsRegister, node->rhsType));
         currentBlock->instructions.push_back(newNode);
     }
     static std::list<std::shared_ptr<X86AsmFunction>> run(const std::list<std::shared_ptr<RTLFunction>> &inputFunctions, const BackendX86 *backend)

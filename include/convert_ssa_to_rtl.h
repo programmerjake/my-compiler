@@ -134,6 +134,16 @@ public:
         std::shared_ptr<RTLNode> newNode = std::make_shared<RTLLoadConstant>(registerMap[node], std::make_shared<ValueVariablePointer>(node->context, VariableLocation(variableDescriptor), node->type->dereference()));
         currentlyGeneratingBasicBlock->instructions.push_back(newNode);
     }
+    virtual void visitSSATypeCast(std::shared_ptr<SSATypeCast> node) override
+    {
+        std::shared_ptr<RTLNode> newNode = std::make_shared<RTLTypeCast>(registerMap[node], node->type, registerMap[node->arg.lock()], node->arg.lock()->type);
+        currentlyGeneratingBasicBlock->instructions.push_back(newNode);
+    }
+    virtual void visitSSAAdd(std::shared_ptr<SSAAdd> node) override
+    {
+        std::shared_ptr<RTLNode> newNode = std::make_shared<RTLAdd>(registerMap[node], registerMap[node->lhs.lock()], registerMap[node->rhs.lock()], node->type, node->lhs.lock()->type, node->rhs.lock()->type);
+        currentlyGeneratingBasicBlock->instructions.push_back(newNode);
+    }
 private:
     void visitSSANode(std::shared_ptr<SSANode> node)
     {

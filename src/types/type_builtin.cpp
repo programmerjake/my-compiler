@@ -33,3 +33,104 @@ std::shared_ptr<ValueNode> TypeInteger::makeDefaultValue()
 {
     return std::make_shared<ValueInteger>(context, isUnsigned, width, 0);
 }
+
+std::shared_ptr<TypeNode> TypePointer::getArithCombinedType(std::shared_ptr<TypeNode> rt)
+{
+    if(dynamic_cast<const TypeInteger *>(rt->toNonConstant()->toNonVolatile().get()))
+        return shared_from_this();
+    return nullptr;
+}
+
+std::shared_ptr<TypeNode> TypeInteger::getArithCombinedType(std::shared_ptr<TypeNode> rt)
+{
+    if(dynamic_cast<const TypePointer *>(rt->toNonConstant()->toNonVolatile().get()))
+        return rt;
+    if(std::shared_ptr<TypeInteger> rtInteger = std::dynamic_pointer_cast<TypeInteger>(rt))
+    {
+        bool resultIsUnsigned = false;
+        Width resultWidth = width;
+        switch(width)
+        {
+        case Width::Int8:
+        case Width::Int16:
+            switch(rtInteger->width)
+            {
+            case Width::Int8:
+            case Width::Int16:
+                resultIsUnsigned = false;
+                resultWidth = Width::IntNativeSize;
+                break;
+            case Width::Int32:
+                resultIsUnsigned = rtInteger->isUnsigned;
+                resultWidth = Width::IntNativeSize;
+                break;
+            case Width::Int64:
+            case Width::IntNativeSize:
+                resultIsUnsigned = rtInteger->isUnsigned;
+                resultWidth = rtInteger->width;
+                break;
+            }
+            break;
+        case Width::Int32:
+            switch(rtInteger->width)
+            {
+            case Width::Int8:
+            case Width::Int16:
+                resultIsUnsigned = false;
+                resultWidth = Width::IntNativeSize;
+                break;
+            case Width::Int32:
+                resultIsUnsigned = isUnsigned || rtInteger->isUnsigned;
+                resultWidth = Width::IntNativeSize;
+                break;
+            case Width::Int64:
+            case Width::IntNativeSize:
+                resultIsUnsigned = rtInteger->isUnsigned;
+                resultWidth = rtInteger->width;
+                break;
+            }
+            break;
+        case Width::Int64:
+            switch(rtInteger->width)
+            {
+            case Width::Int8:
+            case Width::Int16:
+            case Width::Int32:
+            case Width::IntNativeSize:
+                resultIsUnsigned = isUnsigned;
+                resultWidth = Width::Int64;
+                break;
+            case Width::Int64:
+                resultIsUnsigned = isUnsigned || rtInteger->isUnsigned;
+                resultWidth = Width::Int64;
+                break;
+            }
+            break;
+        case Width::IntNativeSize:
+            switch(rtInteger->width)
+            {
+            case Width::Int8:
+            case Width::Int16:
+                resultIsUnsigned = isUnsigned;
+                resultWidth = Width::IntNativeSize;
+                break;
+            case Width::Int32:
+                resultIsUnsigned = isUnsigned;
+                resultWidth = Width::IntNativeSize;
+                break;
+            case Width::Int64:
+                resultIsUnsigned = rtInteger->isUnsigned;
+                resultWidth = rtInteger->width;
+                break;
+            case Width::IntNativeSize:
+                resultIsUnsigned = isUnsigned || rtInteger->isUnsigned;
+                resultWidth = rtInteger->width;
+                break;
+            }
+            break;
+        }
+        return make(context, resultIsUnsigned, resultWidth);
+    }
+    return nullptr;
+}
+

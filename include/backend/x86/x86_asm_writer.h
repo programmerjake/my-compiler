@@ -139,6 +139,152 @@ public:
     {
         os << "    mov %" << node->dest->name << ", %" << node->source->name << "\n";
     }
+    virtual void visitX86AsmNodeAdd(std::shared_ptr<X86AsmNodeAdd> node) override
+    {
+        os << "    add %" << node->dest->name << ", %" << node->rhs->name << "\n";
+    }
+    virtual void visitX86AsmNodeTypeCast(std::shared_ptr<X86AsmNodeTypeCast> node) override
+    {
+        if(node->destType->toNonConstant()->toNonVolatile() == node->sourceType->toNonConstant()->toNonVolatile())
+        {
+            os << "    mov %" << node->dest->name << ", %" << node->source->name << "\n";
+            return;
+        }
+        std::shared_ptr<TypeBoolean> sourceTypeBoolean = std::dynamic_pointer_cast<TypeBoolean>(node->sourceType->toNonConstant()->toNonVolatile());
+        std::shared_ptr<TypeBoolean> destTypeBoolean = std::dynamic_pointer_cast<TypeBoolean>(node->destType->toNonConstant()->toNonVolatile());
+        std::shared_ptr<TypeInteger> sourceTypeInteger = std::dynamic_pointer_cast<TypeInteger>(node->sourceType->toNonConstant()->toNonVolatile());
+        std::shared_ptr<TypeInteger> destTypeInteger = std::dynamic_pointer_cast<TypeInteger>(node->destType->toNonConstant()->toNonVolatile());
+        std::shared_ptr<TypePointer> sourceTypePointer = std::dynamic_pointer_cast<TypePointer>(node->sourceType->toNonConstant()->toNonVolatile());
+        std::shared_ptr<TypePointer> destTypePointer = std::dynamic_pointer_cast<TypePointer>(node->destType->toNonConstant()->toNonVolatile());
+        if((sourceTypeBoolean || sourceTypeInteger || sourceTypePointer) && (destTypeBoolean || destTypeInteger || destTypePointer))
+        {
+            bool sourceIsUnsigned = true;
+            int sourceSize = 1;
+            if(sourceTypeBoolean)
+            {
+                sourceSize = 1;
+                sourceIsUnsigned = true;
+            }
+            else if(sourceTypePointer)
+            {
+                sourceSize = 4;
+                sourceIsUnsigned = true;
+                switch(backend->architecture)
+                {
+                case BackendX86::X86_32:
+                    sourceSize = 4;
+                    break;
+                case BackendX86::X86_64:
+                    sourceSize = 8;
+                    break;
+                }
+            }
+            else if(sourceTypeInteger)
+            {
+                sourceIsUnsigned = sourceTypeInteger->isUnsigned;
+                IntegerWidth calcWidth = sourceTypeInteger->width;
+                if(calcWidth == IntegerWidth::IntNativeSize)
+                    calcWidth = backend->getNativeIntegerWidth();
+                switch(calcWidth)
+                {
+                case IntegerWidth::Int8:
+                    sourceSize = 1;
+                    break;
+                case IntegerWidth::Int16:
+                    sourceSize = 2;
+                    break;
+                case IntegerWidth::Int32:
+                    sourceSize = 4;
+                    break;
+                case IntegerWidth::Int64:
+                    sourceSize = 8;
+                    break;
+                case IntegerWidth::IntNativeSize:
+                    break;
+                }
+            }
+            int destSize = 1;
+            if(destTypeBoolean)
+            {
+                destSize = 1;
+            }
+            else if(destTypePointer)
+            {
+                destSize = 4;
+                switch(backend->architecture)
+                {
+                case BackendX86::X86_32:
+                    destSize = 4;
+                    break;
+                case BackendX86::X86_64:
+                    destSize = 8;
+                    break;
+                }
+            }
+            else if(destTypeInteger)
+            {
+                IntegerWidth calcWidth = destTypeInteger->width;
+                if(calcWidth == IntegerWidth::IntNativeSize)
+                    calcWidth = backend->getNativeIntegerWidth();
+                switch(calcWidth)
+                {
+                case IntegerWidth::Int8:
+                    destSize = 1;
+                    break;
+                case IntegerWidth::Int16:
+                    destSize = 2;
+                    break;
+                case IntegerWidth::Int32:
+                    destSize = 4;
+                    break;
+                case IntegerWidth::Int64:
+                    destSize = 8;
+                    break;
+                case IntegerWidth::IntNativeSize:
+                    break;
+                }
+            }
+            if(destSize == sourceSize)
+                os << "    mov %" << node->dest->name << ", %" << node->source->name << "\n";
+            else if(destSize < sourceSize)
+            {
+                switch(destSize)
+                {
+                case 1:
+                    os << "    mov %" << node->dest->name << ", %" << node->source->getLower8()->name << "\n";
+                    break;
+                case 2:
+                    os << "    mov %" << node->dest->name << ", %" << node->source->getLower16()->name << "\n";
+                    break;
+                case 4:
+                    os << "    mov %" << node->dest->name << ", %" << node->source->getLower32()->name << "\n";
+                    break;
+                case 8:
+                    os << "    mov %" << node->dest->name << ", %" << node->source->getLower64()->name << "\n";
+                    break;
+                }
+            }
+            else
+            {
+                if(sourceIsUnsigned)
+                {
+                    if(destSize > 4)
+                    {
+                        if(sourceSize == 4)
+                            os << "    mov %" << node->dest->getLower32()->name << ", %" << node->source->name << "\n";
+                        else
+                            os << "    movzx %" << node->dest->getLower32()->name << ", %" << node->source->name << "\n";
+                    }
+                    else
+                        os << "    movzx %" << node->dest->name << ", %" << node->source->name << "\n";
+                }
+                else
+                    os << "    movsx %" << node->dest->name << ", %" << node->source->name << "\n";
+            }
+        }
+        else
+            throw std::runtime_error("type cast is not implemented");
+    }
     virtual void visitX86AsmNodeLoadConstant(std::shared_ptr<X86AsmNodeLoadConstant> node) override
     {
         if(std::shared_ptr<ValueBoolean> valueBoolean = std::dynamic_pointer_cast<ValueBoolean>(node->value))

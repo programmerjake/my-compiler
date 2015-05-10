@@ -21,11 +21,11 @@
 
 enum class IntegerWidth
 {
-    Int8,
-    Int16,
-    Int32,
-    Int64,
-    IntNativeSize
+    Int8 = 0,
+    Int16 = 1,
+    Int32 = 2,
+    Int64 = 3,
+    IntNativeSize = 16
 };
 
 #endif // INTEGER_WIDTH_H_INCLUDED

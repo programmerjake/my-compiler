@@ -38,13 +38,17 @@ std::string getSourceCode()
     return
         "for(boolean x = true, y = true, z = true; z; z = y, y = x, x = false)\n"
         "{\n"
-        "    volatile int v;\n"
-        "    volatile int v2;\n"
+        "    volatile int v = cast(int, 0);\n"
+        "    volatile int v2 = cast(int, 1);\n"
         "    volatile int *a = &v;\n"
         "    if(x)\n"
         "        a = &v2;\n"
-        "    *a = v2;\n"
-        "}\n";
+        "    *a = cast(int, 1) + cast(int, 2);\n"
+        "}\n"
+        "for(int i = cast(int, 0); i < cast(int, 10); i = i + 1)\n"
+        "{\n"
+        "}\n"
+        "";
 }
 
 struct ArchitectureDescriptor final
@@ -177,7 +181,8 @@ int main(int argc, char **argv)
         return 1;
     }
     std::cout << std::endl << std::endl;
-    ConstructBasicBlockGraphVisitor().visitSSAFunction(fn);
+    DumpVisitor(std::cout).visitSSAFunction(fn);
+    std::cout << std::endl << std::endl;
     fn->verify();
     for(std::size_t i = 0; i < 3; i++)
     {
